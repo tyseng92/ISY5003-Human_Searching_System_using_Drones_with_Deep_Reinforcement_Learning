@@ -1,12 +1,3 @@
-"""
-Date: 1/2/2020
-Team: Kenneth Goh (A0198544N) Raymond Ng (A0198543R) Wong Yoke Keong (A0195365U)
-
-Intelligent Robotic Systems Practice Module
-
-Code is adapted from:
-https://github.com/microsoft/DroneRescue
-"""
 
 import time
 import math
@@ -238,7 +229,7 @@ class OrbitNavigator:
             return -1
         return 1
 
-def Orbit(cx, cy, radius, speed, altitude, camera_angle, drone, id, folder):
+def Orbit(cx, cy, radius, speed, altitude, camera_angle, target, id, folder):
     """
     @param cx: The x position of our orbit starting location
     @param cy: The x position of our orbit starting location
@@ -286,8 +277,7 @@ def Orbit(cx, cy, radius, speed, altitude, camera_angle, drone, id, folder):
     print("yaw is {}".format(o[2]))
 
     # let's orbit around the animal and take some photos
-    folder = "./drone_images/" + folder
-    nav = OrbitNavigator(photo_prefix=drone, radius=radius, altitude=altitude, speed=speed, iterations=1, center=[
+    nav = OrbitNavigator(photo_prefix=target, radius=radius, altitude=altitude, speed=speed, iterations=1, center=[
                                      cx - pos.x_val, cy - pos.y_val], snapshots=30, image_dir=folder, id=id)
     nav.start()
 
@@ -332,11 +322,12 @@ if __name__ == '__main__':
         z = pos.z_val
 
     # Start the navigation task
-    alt = 0.2
-    deg = 0
-    folder = 'FootballField'
-    filename = "Drone_" + "Alt" + str(alt) + "_Deg" + str(deg) + "_"
-    Orbit(4, 0, 3, 0.4, alt, deg, filename, id=sd, folder=folder)
+    alt = 1
+    deg = -30
+    folder = './captured_images/Tracking_Area'
+    target = 'human_1'
+    filename = target + '_alt_' + str(alt) + '_deg_' + str(deg) + '_' 
+    Orbit(0, 0, 2, 0.4, alt, deg, filename, id=sd, folder=folder)
 
     land()
 
