@@ -1,4 +1,7 @@
 Update Fix
+
+20 Oct 2021
+- changing the 'Player Start' to [0,0,0] coordinate, and changing the vehicles XYZ coordinate to zeros will allow the human to walk around.
 ====================================================================
 17 Oct 2021
 - Successfully solve the Path Follow problem.

@@ -15,7 +15,7 @@ class Position:
 
 
 class OrbitNavigator:
-    def __init__(self, photo_prefix="photo_", radius=2, altitude=10, speed=2, iterations=1, center=[1, 0], snapshots=None, image_dir="./images/", id='ShooterDrone'):
+    def __init__(self, photo_prefix="photo_", radius=2, altitude=10, speed=2, iterations=1, center=[1, 0], snapshots=None, image_dir="./images/", id='ShooterDrone', orbit_direction=1):
         self.radius = radius
         self.altitude = altitude
         self.speed = speed
@@ -29,6 +29,7 @@ class OrbitNavigator:
         self.photo_prefix = photo_prefix
         self.takeoff = True  # whether we did a take off
         self.id = id
+        self.orbit_direction = orbit_direction
 
         if self.snapshots is not None and self.snapshots > 0:
             self.snapshot_delta = 360 / self.snapshots
@@ -89,14 +90,14 @@ class OrbitNavigator:
         else:
             print("already flying so we will orbit at current altitude {}".format(
                 start.z_val))
-            z = start.z_val - self.altitude  # use current altitude then
+            z = - self.altitude  # use current altitude then
 
         print("climbing to position: {},{},{}".format(
             start.x_val, start.y_val, z))
         self.client.moveToPositionAsync(
             start.x_val, start.y_val, z, self.speed, vehicle_name=self.id).join()
         self.z = z
-
+        print("self.z:", self.z)
         print("ramping up to speed...")
         count = 0
         self.start_angle = None
@@ -108,6 +109,8 @@ class OrbitNavigator:
 
         while count < self.iterations and self.snapshot_index < self.snapshots:
             # ramp up to full speed in smooth increments so we don't start too aggressively.
+            #print("count:", count)
+            #print("snapshot_index:", self.snapshot_index)
             now = time.time()
             speed = self.speed
             diff = now - self.start_time
@@ -125,14 +128,14 @@ class OrbitNavigator:
             dy = pos.y_val - self.center.y_val
             actual_radius = math.sqrt((dx*dx) + (dy*dy))
             angle_to_center = math.atan2(dy, dx)
-
+            print("angle_to_center:", angle_to_center * 180 / math.pi)
             camera_heading = (angle_to_center - math.pi) * 180 / math.pi
 
             # compute lookahead
             lookahead_x = self.center.x_val + self.radius * \
-                math.cos(angle_to_center + lookahead_angle)
+                math.cos(angle_to_center + self.orbit_direction * lookahead_angle)
             lookahead_y = self.center.y_val + self.radius * \
-                math.sin(angle_to_center + lookahead_angle)
+                math.sin(angle_to_center + self.orbit_direction * lookahead_angle)
 
             vx = lookahead_x - pos.x_val
             vy = lookahead_y - pos.y_val
@@ -152,7 +155,8 @@ class OrbitNavigator:
         # about the starting point.  So we watch for complete 1/2 orbits to avoid that problem.
         if angle < 0:
             angle += 360
-
+        #print("angle:", angle)
+        #print("next:", self.next_snapshot)
         if self.start_angle is None:
             self.start_angle = angle
             if self.snapshot_delta:
@@ -188,10 +192,18 @@ class OrbitNavigator:
         if diff > 45:
             self.quarter = True
 
+        #print("diff:", diff)
+        #print("prediff:", self.previous_diff)
+
         if self.quarter and self.previous_diff is not None and diff != self.previous_diff:
             # watch direction this diff is moving if it switches from shrinking to growing
             # then we passed the starting point.
             direction = self.sign(self.previous_diff - diff)
+            print("start_angle:", self.start_angle)
+            print("direction:", direction)
+            print("previous_sign:", self.previous_sign)
+            print("diff:", diff)
+
             if self.previous_sign is None:
                 self.previous_sign = direction
             elif self.previous_sign > 0 and direction < 0:
@@ -219,7 +231,7 @@ class OrbitNavigator:
             str(self.snapshot_index) + "_" + str(int(time.time()))
         self.snapshot_index += 1
         airsim.write_file(os.path.normpath(
-            self.image_dir + filename + '.png'), response.image_data_uint8)
+            self.image_dir + filename + '.jpg'), response.image_data_uint8)
         print("Saved snapshot: {}".format(filename))
         # cause smooth ramp up to happen again after photo is taken.
         self.start_time = time.time()
@@ -229,7 +241,7 @@ class OrbitNavigator:
             return -1
         return 1
 
-def Orbit(cx, cy, radius, speed, altitude, camera_angle, target, id, folder):
+def Orbit(cx, cy, radius, speed, altitude, camera_angle, target, id, folder, orbit_direction):
     """
     @param cx: The x position of our orbit starting location
     @param cy: The x position of our orbit starting location
@@ -240,15 +252,19 @@ def Orbit(cx, cy, radius, speed, altitude, camera_angle, target, id, folder):
     @param drone: The name of the drone, used to prefix the photos
     """
 
-    x = cx - radius
+    x = cx + radius
     y = cy
 
     # set camera angle
-    client.simSetCameraOrientation(0, airsim.to_quaternion(
-        camera_angle * math.pi / 180, 0, 0),vehicle_name=id)  # radians
+    #client.simSetCameraOrientation(0, airsim.to_quaternion(
+    #    camera_angle * math.pi / 180, 0, 0),vehicle_name=id)  # radians
+
+    camera_pose = airsim.Pose(airsim.Vector3r(0, 0, 0), airsim.to_quaternion(math.radians(camera_angle), 0, 0)) #radians
+    client.simSetCameraPose("0", camera_pose,vehicle_name=id)
 
     # move the drone to the requested location
     print("moving to position...")
+    #print("z:", z)
     client.moveToPositionAsync(
         x, y, z, 1, 60, drivetrain=airsim.DrivetrainType.MaxDegreeOfFreedom, yaw_mode=airsim.YawMode(False, 0),vehicle_name=id).join()
     pos = client.getMultirotorState(vehicle_name=id).kinematics_estimated.position
@@ -278,14 +294,14 @@ def Orbit(cx, cy, radius, speed, altitude, camera_angle, target, id, folder):
 
     # let's orbit around the animal and take some photos
     nav = OrbitNavigator(photo_prefix=target, radius=radius, altitude=altitude, speed=speed, iterations=1, center=[
-                                     cx - pos.x_val, cy - pos.y_val], snapshots=30, image_dir=folder, id=id)
+                                     cx - pos.x_val, cy - pos.y_val], snapshots=30, image_dir=folder, id=id, orbit_direction=orbit_direction)
     nav.start()
 
 
 def land():
     print("landing...")
     client.landAsync(vehicle_name='ShooterDrone').join()
-    client.landAsync(vehicle_name='TargetDrone').join()
+    #client.landAsync(vehicle_name='TargetDrone').join()
     print("disarming.")
     client.armDisarm(False)
 
@@ -297,15 +313,15 @@ if __name__ == '__main__':
     # Conect with the airsim server
     print("Start")
     sd = 'ShooterDrone'
-    td = 'TargetDrone'
+    #td = 'TargetDrone'
     client = airsim.MultirotorClient()
     client.confirmConnection()
     client.enableApiControl(True, vehicle_name=sd)
-    client.enableApiControl(True, vehicle_name=td)
+    #client.enableApiControl(True, vehicle_name=td)
     client.armDisarm(True, vehicle_name=sd)
-    client.armDisarm(True, vehicle_name=td)
+    #client.armDisarm(True, vehicle_name=td)
     print("Armed")
-    client.takeoffAsync(vehicle_name=td).join()
+    #client.takeoffAsync(vehicle_name=td).join()
 
     # Check State and takeoff if required
     landed = client.getMultirotorState(vehicle_name=sd).landed_state
@@ -317,17 +333,40 @@ if __name__ == '__main__':
         client.takeoffAsync(vehicle_name=sd).join()
     else:
         print("already flying...")
-        client.hover()
+        client.hoverAsync()
         pos = client.getMultirotorState(vehicle_name=sd).kinematics_estimated.position
         z = pos.z_val
 
     # Start the navigation task
-    alt = 1
-    deg = -30
-    folder = './captured_images/Tracking_Area'
-    target = 'human_1'
-    filename = target + '_alt_' + str(alt) + '_deg_' + str(deg) + '_' 
-    Orbit(0, 0, 2, 0.4, alt, deg, filename, id=sd, folder=folder)
+    orbit_direction = 1
+    #rds = 1
+    #rds = 3
+    #rds = 5
+    #rds = 9
+    #rds = 15
+    rds = 30
+    #spd = 0.4
+    spd = 0.8
+    #alt = 18
+    #alt = 13
+    #alt = 8
+    alt = 3
+    #deg = -90
+    #deg = -80
+    #deg = -70
+    #deg = -60
+    #deg = -50
+    #deg = -35
+    #deg = -30
+    deg = -20
+    #folder = './captured_images/target_a/'
+    #target = 'target_a'
+    folder = './captured_images/target_b/'
+    target = 'target_b'
+    # in settings.json, vehicle's coordinate is set as "X": 0, "Y": 0, "Z": -12.
+    filename = target + '_rds_' + str(rds) + '_alt_' + str(alt) + '_deg_' + str(deg) + '_' 
+    #Orbit(0, 0, 5, 0.4, alt, deg, filename, id=sd, folder=folder)
+    Orbit(0, 0, rds, spd, alt, deg, filename, id=sd, folder=folder, orbit_direction=orbit_direction)
 
     land()
 
