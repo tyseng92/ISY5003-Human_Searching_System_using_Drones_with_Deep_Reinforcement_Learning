@@ -13,7 +13,8 @@ import numpy as np
 
 class DroneControl:
     def __init__(self, droneList):
-        self.client = airsim.MultirotorClient('127.0.0.1')
+        #input your own ipv4 address here if you are using WSL2, ipconfig on cmd
+        self.client = airsim.MultirotorClient()
         self.client.confirmConnection()
         self.droneList = droneList
         self.init_AirSim()

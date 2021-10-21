@@ -19,10 +19,10 @@ import tensorflow as tf
 import keras.backend as K
 from keras.layers import TimeDistributed, BatchNormalization, Flatten, Lambda, Concatenate
 from keras.layers import Conv2D, MaxPooling2D, Dense, GRU, Input, ELU, Activation
-from keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam
 from keras.models import Model
-from PIL import Image
-import cv2
+# from PIL import Image
+# import cv2
 from airsim_env import Env, ACTION
 
 np.set_printoptions(suppress=True, precision=4)

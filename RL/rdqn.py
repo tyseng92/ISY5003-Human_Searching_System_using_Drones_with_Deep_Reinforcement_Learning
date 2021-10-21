@@ -21,9 +21,11 @@ from keras.layers import TimeDistributed, BatchNormalization, Flatten, Lambda, C
 from keras.layers import Conv2D, MaxPooling2D, Dense, GRU, Input, ELU, Activation
 from keras.optimizers import Adam
 from keras.models import Model
-from PIL import Image
+# from PIL import Image
 import cv2
 from airsim_env import Env, ACTION
+tf.test.is_gpu_available()
+
 
 np.set_printoptions(suppress=True, precision=4)
 agent_name = 'rdqn'
