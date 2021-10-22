@@ -12,6 +12,7 @@ import cv2
 import os
 import numpy as np
 import json
+from inference_img import Yolov4
 
 class DroneControl:
     def __init__(self, droneList):
@@ -23,6 +24,7 @@ class DroneControl:
         self.target = 'human_1'
         self.snapshot_index = 0
         self.z_offset = self.get_spawn_z_offset(self.droneList[0])
+        self.yolo = Yolov4()
     
     def init_AirSim(self):
         """
@@ -221,8 +223,18 @@ class DroneControl:
             str(self.snapshot_index) + "_" + str(int(time.time()))
         self.snapshot_index += 1
         airsim.write_file(os.path.normpath(
-            self.image_dir + filename + '.jpg'), response.image_data_uint8)
+            self.image_dir + filename + '.png'), response.image_data_uint8)
         print("Saved snapshot: {}".format(filename))
+
+    def inference(self, drone, cam = 0):
+        responses = self.client.simGetImages([airsim.ImageRequest(
+            0, airsim.ImageType.Scene, False, False)],vehicle_name=drone)  # scene vision image in png format
+        response = responses[0]
+        img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8) # get numpy array
+        img_rgb = img1d.reshape(response.height, response.width, 3)
+        results = self.yolo.predict(img_rgb)
+        self.yolo.display()
+
 
     def turnDroneBySelfFrame(self, drone, turn_spd, duration):
         """

@@ -3,7 +3,8 @@ import os
 import time
 from pynput import keyboard
 from DroneControlAPI import DroneControl
-
+from absl import app, flags, logging
+from absl.flags import FLAGS
 
 class MoveDrone(object):
     def __init__(self, drone_list):
@@ -61,7 +62,8 @@ class MoveDrone(object):
                 'd':self.anticlockwise,
                 'q':self.top,
                 'e':self.bottom,
-                'f':self.capture,
+                'f':self.inference,
+                'g':self.capture,
                 '1':self.cam_up,
                 '3':self.cam_down,
                 '4':self.change_alt_top,
@@ -136,6 +138,10 @@ class MoveDrone(object):
     def capture(self):
         self.stop()
         self.dc.captureImg(self.target_drone)
+    
+    def inference(self):
+        self.stop()
+        self.dc.inference(self.target_drone)
 
     def stop(self):
         #print(self.target_drone)
@@ -143,8 +149,13 @@ class MoveDrone(object):
         self.dc.hoverAsync(self.target_drone)
         self.stabilize()
 
-
-if __name__ == '__main__':
+def main(_argv):
     droneList = ['ShooterDrone']
     md = MoveDrone(droneList)
+
+if __name__ == '__main__':
+    try:
+        app.run(main)
+    except SystemExit:
+        pass
     

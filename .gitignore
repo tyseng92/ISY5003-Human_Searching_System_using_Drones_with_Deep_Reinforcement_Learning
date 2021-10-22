@@ -1,2 +1,5 @@
 *.jpg
 *.pyc
+*.weights
+*.mp4
+vision/checkpoints
