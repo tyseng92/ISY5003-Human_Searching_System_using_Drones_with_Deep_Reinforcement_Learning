@@ -86,7 +86,8 @@ class Yolov4(object):
         class_names = utils.read_class_names(cfg.YOLO.CLASSES)
 
         # by default allow all classes in .names file
-        self.allowed_classes = list(class_names.values())  
+        #self.allowed_classes = list(class_names.values())
+        self.allowed_classes = ['person']  
 
         return self.pred_bbox      
 
@@ -101,7 +102,7 @@ class Yolov4(object):
 
 def main(_argv):
     yolo = Yolov4()
-    for i in range(1,4):
+    for i in range(1,10):
         image_path = 'data/images/'+ str(i) + '.jpg'
         img = cv2.imread(image_path)
         pred_bbox = yolo.predict(img)

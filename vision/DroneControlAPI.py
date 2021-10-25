@@ -15,7 +15,7 @@ import json
 from inference_img import Yolov4
 
 class DroneControl:
-    def __init__(self, droneList):
+    def __init__(self, droneList, drone_id, inference):
         self.client = airsim.MultirotorClient('127.0.0.1')
         self.client.confirmConnection()
         self.droneList = droneList
@@ -23,8 +23,10 @@ class DroneControl:
         self.image_dir = './captured_images/human_1/'
         self.target = 'human_1'
         self.snapshot_index = 0
-        self.z_offset = self.get_spawn_z_offset(self.droneList[0])
-        self.yolo = Yolov4()
+        self.z_offset = self.get_spawn_z_offset(self.droneList[drone_id])
+        self.inference = inference
+        if self.inference:
+            self.yolo = Yolov4()
     
     def init_AirSim(self):
         """
@@ -155,6 +157,7 @@ class DroneControl:
         else:
             print('Drone does not exists!')
     
+    # move relative to global frame
     def moveDrone(self, drone, position, duration):
         """
         Method to move drone to indicated position
@@ -202,7 +205,7 @@ class DroneControl:
             camera_angle * math.pi / 180, 0, 0),vehicle_name=drone)  # radians
     
     def setCameraAngle(self, camera_angle, drone, cam="0"):
-        camera_pose = airsim.Pose(airsim.Vector3r(0, 0, 0), airsim.to_quaternion(math.radians(camera_angle), 0, 0)) #radians
+        camera_pose = airsim.Pose(airsim.Vector3r(0, 0, 0), airsim.to_quaternion(math.radians(camera_angle[0]), math.radians(camera_angle[1]), math.radians(camera_angle[2]))) #radians
         self.client.simSetCameraPose(cam, camera_pose, vehicle_name=drone)
 
     def getImage(self, drone, cam=0):
@@ -217,7 +220,7 @@ class DroneControl:
             os.makedirs(self.image_dir)  
         
         responses = self.client.simGetImages([airsim.ImageRequest(
-            0, airsim.ImageType.Scene)],vehicle_name=drone)  # scene vision image in png format
+            cam, airsim.ImageType.Scene)],vehicle_name=drone)  # scene vision image in png format
         response = responses[0]
         filename = self.target + "_" + \
             str(self.snapshot_index) + "_" + str(int(time.time()))
@@ -227,14 +230,25 @@ class DroneControl:
         print("Saved snapshot: {}".format(filename))
 
     def inference(self, drone, cam = 0):
+        if self.inference:
+            responses = self.client.simGetImages([airsim.ImageRequest(
+                cam, airsim.ImageType.Scene, False, False)],vehicle_name=drone)  # scene vision image in png format
+            response = responses[0]
+            img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8) # get numpy array
+            img_rgb = img1d.reshape(response.height, response.width, 3)
+            results = self.yolo.predict(img_rgb)
+            self.yolo.display()
+
+    def getPredBbox(self, frame):
+        return self.yolo.predict(frame)
+
+    def captureImgNumpy(self, drone, cam = 0):
         responses = self.client.simGetImages([airsim.ImageRequest(
-            0, airsim.ImageType.Scene, False, False)],vehicle_name=drone)  # scene vision image in png format
+            cam, airsim.ImageType.Scene, False, False)],vehicle_name=drone)  # scene vision image in png format
         response = responses[0]
         img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8) # get numpy array
         img_rgb = img1d.reshape(response.height, response.width, 3)
-        results = self.yolo.predict(img_rgb)
-        self.yolo.display()
-
+        return img_rgb
 
     def turnDroneBySelfFrame(self, drone, turn_spd, duration):
         """
@@ -243,7 +257,8 @@ class DroneControl:
         pos = self.getMultirotorState(drone).kinematics_estimated.position
         self.client.moveByVelocityZBodyFrameAsync(0, 0, pos.z_val, duration, airsim.DrivetrainType.MaxDegreeOfFreedom, airsim.YawMode(True, turn_spd), vehicle_name=drone)
 
-    def moveDroneBySelfFrame(self, drone, velocity, duration):
+    # move relative to drone body frame, multiple drone move together
+    def moveMulDroneBySelfFrame(self, drone, velocity, duration):
         """
         Method to move drone with indicated velocity
         velocity = [x_val, y_val, z_val]
@@ -257,10 +272,21 @@ class DroneControl:
         else:
             print('Drone does not exists!')
 
+    # move relative to drone body frame, single drone is moved
+    def moveDroneBySelfFrame(self, drone, velocity, duration):
+        """
+        Method to move drone with indicated velocity
+        velocity = [x_val, y_val, z_val]
+        """
+        self.client.moveByVelocityBodyFrameAsync(vehicle_name=drone, 
+                                             vx=velocity[0], 
+                                             vy=velocity[1], 
+                                             vz=velocity[2],
+                                             duration=duration).join()
+
     # moveToPositionAsync(self, x, y, z, velocity, timeout_sec = 3e+38, drivetrain = DrivetrainType.MaxDegreeOfFreedom, yaw_mode = YawMode(),
     #    lookahead = -1, adaptive_lookahead = 1, vehicle_name = '')
     def moveDroneToPos(self, drone, position):
-        #z_offset = self.get_spawn_z_offset(drone)
         z = position[2]-self.z_offset
         self.client.moveToPositionAsync(vehicle_name=drone,
                                         x=position[0], y=position[1], z=z, velocity=1, timeout_sec=60, 
@@ -268,8 +294,7 @@ class DroneControl:
                                         yaw_mode=airsim.YawMode(True, 0)).join()
 
     def changeDroneAlt(self, drone, altitude):
-        # getMultirotorState use the spawn coordinate rather than global coordinate from UE4, use offset to translate from UE4 to spawn coordinate (settings.json)
-        #z_offset = self.get_spawn_z_offset(drone)
+        ## getMultirotorState use the spawn coordinate rather than global coordinate from UE4, use offset to translate from UE4 to spawn coordinate (settings.json)
         pos = self.getMultirotorState(drone).kinematics_estimated.position
         print("init_alt:", pos.z_val)
         print("z_offset:", self.z_offset)
@@ -287,8 +312,12 @@ class DroneControl:
 
     def check_pos_from_player_start(self, drone):
         #pos = self.client.simGetGroundTruthKinematics(vehicle_name=drone)
-        pos = self.client.simGetObjectPose(drone)
+        pos = self.client.simGetObjectPose(drone).position
         print("global_position_info:", pos)
+        return pos
+
+    def getDronePosition(self, drone):
+        pos = self.client.simGetObjectPose(drone).position
         return pos
 
     def getSettingsString(self):
@@ -296,6 +325,7 @@ class DroneControl:
         #print("Setting_json:", string)
         return string
 
+    # read value from settings.json
     def get_spawn_z_offset(self, drone):
         s = self.getSettingsString()
         d = json.loads(s)
