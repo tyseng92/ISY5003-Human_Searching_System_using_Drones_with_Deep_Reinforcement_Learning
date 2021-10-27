@@ -3,9 +3,9 @@ import numpy as np
 import airsim
 import config
 from geopy import distance
-from ..vision.DroneControlAPI import DroneControl
-from ..vision.keyboard_control import MoveDrone
-from ..vision.inference_img import Yolov4
+from DroneControlAPI import DroneControl
+from keyboard_control import MoveDrone
+from inference_img import Yolov4
 
 import math
 from pathlib import Path
@@ -24,7 +24,7 @@ goals = [7, 17, 27.5, 45, goalY]
 speed_limit = 0.2
 ACTION = ['00', '+x', '+y', '+z', '-x', '-y', '-z']
 
-droneList = ['Drone1', 'Drone2', 'Drone3']
+droneList = ['Drone0', 'Drone1', 'Drone2']
 #base_dir = Path('..')
 #yolo_weights = base_dir/'weights'/'drone.h5'
 
@@ -68,7 +68,7 @@ class Env:
 
         drone_pos = []
         for drone in droneList:
-            drone_pos.append(self.dc.getDronePosition(self, drone)) 
+            drone_pos.append(self.dc.getDronePosition(drone)) 
 
         observation = [responses, drone_pos]
         return observation
@@ -78,7 +78,6 @@ class Env:
         quad_offset = []
         for qoffset in quad_offset_list: # [(xyz),(xyz),(xyz)]
             quad_offset.append([float(i) for i in qoffset])
-
         self.dc.simPause(False)
         
         # Move the drones
@@ -126,7 +125,7 @@ class Env:
 
         drone_pos = []
         for drone in droneList:
-            drone_pos.append(self.dc.getDronePosition(self, drone)) 
+            drone_pos.append(self.dc.getDronePosition(drone)) 
         
         # Get each follower drone image reward
         exist_reward = {}

@@ -47,7 +47,7 @@ class Yolov4(object):
     def load_model(self):
         self.config = ConfigProto()
         self.config.gpu_options.allow_growth = True
-        self.session = InteractiveSession(config=self.config)
+        #self.session = InteractiveSession(config=self.config)
         STRIDES, ANCHORS, NUM_CLASS, XYSCALE = utils.load_config(FLAGS)
         self.saved_model_loaded = tf.saved_model.load(FLAGS.weights, tags=[tag_constants.SERVING])
         self.infer = self.saved_model_loaded.signatures['serving_default']

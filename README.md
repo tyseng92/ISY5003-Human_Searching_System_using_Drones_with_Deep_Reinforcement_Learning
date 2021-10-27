@@ -72,4 +72,9 @@ Members  : Ng YanBo, Teoh Yee Seng
 
 - Additional Citations are in the report
 
+Related weblink for the drone search operation:
+- https://link.springer.com/article/10.1007/s00521-020-05097-x
+- https://www.hindawi.com/journals/complexity/2018/6879419/
+- https://onlinelibrary.wiley.com/doi/epdf/10.1002/rob.20226
+- https://ieeexplore.ieee.org/document/6290694
 ---

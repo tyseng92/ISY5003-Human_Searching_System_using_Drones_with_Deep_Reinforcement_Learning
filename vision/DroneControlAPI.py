@@ -15,7 +15,7 @@ import json
 from inference_img import Yolov4
 
 class DroneControl:
-    def __init__(self, droneList, drone_id, inference):
+    def __init__(self, droneList, drone_id=0, inference=True):
         self.client = airsim.MultirotorClient('127.0.0.1')
         self.client.confirmConnection()
         self.droneList = droneList
@@ -229,7 +229,7 @@ class DroneControl:
             self.image_dir + filename + '.png'), response.image_data_uint8)
         print("Saved snapshot: {}".format(filename))
 
-    def inference(self, drone, cam = 0):
+    def inference_run(self, drone, cam = 0):
         if self.inference:
             responses = self.client.simGetImages([airsim.ImageRequest(
                 cam, airsim.ImageType.Scene, False, False)],vehicle_name=drone)  # scene vision image in png format

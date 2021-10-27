@@ -7,15 +7,19 @@ from copy import deepcopy
 from collections import deque
 from datetime import datetime as dt
 import numpy as np
-import tensorflow as tf
-import keras.backend as K
-from keras.layers import TimeDistributed, BatchNormalization, Flatten, Lambda, Concatenate
-from keras.layers import Conv2D, MaxPooling2D, Dense, GRU, Input, ELU, Activation
-from keras.optimizers import Adam
-from keras.models import Model
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+import tensorflow.python.keras.backend as K
+from tensorflow.keras.layers import TimeDistributed, BatchNormalization, Flatten, Lambda, Concatenate
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dense, GRU, Input, ELU, Activation
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.models import Model
 from PIL import Image
 import cv2
 from airsim_env import Env, ACTION
+from absl import app, flags, logging
+from absl.flags import FLAGS
 
 np.set_printoptions(suppress=True, precision=4)
 agent_name = 'rdqn'
@@ -147,7 +151,8 @@ class RDQNAgent(object):
         loss = K.mean(concatpreloss)
 
         optimizer = Adam(lr=self.lr)
-        updates = optimizer.get_updates(self.critic.trainable_weights, [], loss)
+        #updates = optimizer.get_updates(self.critic.trainable_weights, [], loss)
+        updates = optimizer.get_updates(params=self.critic.trainable_weights, loss=loss)
         train = K.function(
             [self.critic.input[0], self.critic.input[1], action1, action2, action3, y1, y2, y3],
             [loss],
@@ -156,6 +161,7 @@ class RDQNAgent(object):
         return train
 
     def get_action(self, state):
+        print("state:", state)
         Qs1, Qs2, Qs3 = self.critic.predict(state)
         Qmax1 = np.amax(Qs1)
         Qmax2 = np.amax(Qs2)
@@ -251,7 +257,8 @@ def interpret_action(action):
 
     return quad_offset
 
-if __name__ == '__main__':
+#if __name__ == '__main__':
+def main(_argv):
     # CUDA config
     tf_config = tf.ConfigProto()
     tf_config.gpu_options.allow_growth = True
@@ -429,7 +436,6 @@ if __name__ == '__main__':
                         print('Updating target model')
                         agent.update_target_model()
                         global_train_num = 0
-
                     (action1, policy1, Qmax1), (action2, policy2, Qmax2), (action3, policy3, Qmax3) = agent.get_action(state)
                     real_action1, real_action2, real_action3 = interpret_action(action1), interpret_action(action2), interpret_action(action3)
                     observe, reward, done, info = env.step([real_action1,real_action2,real_action3])
@@ -501,3 +507,9 @@ if __name__ == '__main__':
             except Exception as e:
                 print(f'{e}')
                 break
+
+if __name__ == '__main__':
+    try:
+        app.run(main)
+    except SystemExit:
+        pass
