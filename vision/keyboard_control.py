@@ -191,7 +191,7 @@ class MoveDrone(object):
         if self.inference:
             self.stop()
             # change cam id to 1, 2, or 4
-            self.dc.inference_run(self.target_drone, cam = 1)
+            self.dc.inference_run_yv3(self.target_drone, cam = 1)
 
     def stop(self):
         #print(self.target_drone)
