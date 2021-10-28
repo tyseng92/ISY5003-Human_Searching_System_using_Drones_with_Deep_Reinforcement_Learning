@@ -12,7 +12,7 @@ import cv2
 import os
 import numpy as np
 import json
-from inference_img import Yolov4
+#from inference_img import Yolov4
 from yolov3_inference import *
 
 class DroneControl:
