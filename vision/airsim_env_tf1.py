@@ -3,9 +3,9 @@ import numpy as np
 import airsim
 import config
 from geopy import distance
-from DroneControlAPI import DroneControl
+from DroneControlAPI_yv3 import DroneControl
 from keyboard_control import MoveDrone
-from inference_img import Yolov4
+from yolov3_inference import *
 
 import math
 from pathlib import Path
@@ -14,11 +14,12 @@ clockspeed = 1
 timeslice = 0.5 / clockspeed
 goalY = 57
 outY = -0.5
+angle_spd = 10
 
 # base on UE4 coordinate with NED frame
 floorZ = 0 
-min_height = -3 
-max_height = -8
+min_height = -7 
+max_height = -9
 
 goals = [7, 17, 27.5, 45, goalY]
 speed_limit = 0.2
@@ -26,17 +27,17 @@ ACTION = ['00', '+x', '+y', '+z', '-x', '-y', '-z']
 
 droneList = ['Drone0', 'Drone1', 'Drone2']
 #base_dir = Path('..')
-#yolo_weights = base_dir/'weights'/'drone.h5'
+yolo_weights = 'data/drone.h5'
 
 class Env:
     def __init__(self):
         # connect to the AirSim simulator
         self.dc = DroneControl(droneList)
         # Load the inference model
-        #self.infer_model = YoloPredictor(yolo_weights)
-        self.yolo = Yolov4()
+        self.infer_model = YoloPredictor(yolo_weights)
         self.action_size = 3
-        self.altitude = -2.5
+        self.altitude = -8
+        #self.altitude = -2.5
         self.init_pos = [0,0,self.altitude]
         self.camera_angle = [-50, 0, 0]
         self.level = 0
@@ -47,6 +48,7 @@ class Env:
         '''
         Method to reset AirSim env to starting position
         '''
+        print("RESET")
         self.level = 0
         self.dc.resetAndRearm_Drones()
 
@@ -63,25 +65,28 @@ class Env:
         # capture image to numpy by drone
         responses = []
         for drone in droneList:
-            #img = self.dc.captureImgNumpy(drone, cam = 0)
-            #responses.append(img)
-            responses.append(self.dc.getImage(drone))
+            img = self.dc.captureImgNumpy(drone, cam = 0)
+            responses.append(img)
+            print("captured img")
+            #responses.append(self.dc.getImage(drone))
 
         #drone_pos = []
         #for drone in droneList:
-        #    drone_pos.append(self.dc.getDronePosition(drone)) 
-
-        quad_spd = [] 
+        #    drone_pos.append(self.dc.getDronePosition(drone))
+        quad_spd = []
         for drone in droneList:
             quad_vel = self.dc.getMultirotorState(drone).kinematics_estimated.linear_velocity
             quad_vel_vec = [quad_vel.x_val, quad_vel.y_val, quad_vel.z_val]
             quad_spd_val = np.linalg.norm(quad_vel_vec)
             quad_spd.append(quad_spd_val)
 
+        #print("quad_vel_val:", quad_vel_val)
+        #print("type:", type(quad_vel_val))
         observation = [responses, quad_spd]
         return observation
 
     def step(self, quad_offset_list):
+        print("STEP")
         # move with given velocity
         quad_offset = []
         for qoffset in quad_offset_list: # [(xyz),(xyz),(xyz)]
@@ -90,7 +95,23 @@ class Env:
         
         # Move the drones
         for id, drone in enumerate(droneList):
-            self.dc.moveDrone(drone, [quad_offset[id][0], quad_offset[id][1], quad_offset[id][2]], 2* timeslice)
+            # front and back
+            if quad_offset[id][3] == 1 or quad_offset[id][3] == 4:
+                self.dc.moveDroneBySelfFrame(drone, [quad_offset[id][0],0,0], 2* timeslice)
+                self.stabilize(drone)
+            # clockwise and anticlockwise
+            elif quad_offset[id][3] == 2 or quad_offset[id][3] == 5:
+                self.dc.turnDroneBySelfFrame(drone, quad_offset[id][1]*angle_spd, 2* timeslice)
+                self.stabilize(drone)
+            # top and bottom
+            elif quad_offset[id][3] == 3 or quad_offset[id][3] == 6:
+                self.dc.moveDroneBySelfFrame(drone, [0,0,quad_offset[id][2]], 2* timeslice)
+                self.stabilize(drone)
+            # for stop action quad_offset[id][3] == 0 
+            else:
+                pass 
+
+            #self.dc.moveDrone(drone, [quad_offset[id][0], quad_offset[id][1], quad_offset[id][2]], 2* timeslice)
 
         # Get follower drones position and linear velocity        
         landed = [False, False, False]
@@ -146,9 +167,11 @@ class Env:
         for id, drone in enumerate(droneList):
             img = responses[id]
             #try:
-            bbox = self.dc.getPredBbox(img)
+            #bbox = self.dc.getPredBbox(img)
+            bbox = self.infer_model.get_yolo_boxes(img[:,:,:3])
+            #print("bbox:", bbox)
             # if no detection is found, where bbox is [0,0,0,0].
-            if not any(bbox):
+            if bbox == []:
                 exist_status = 'miss'
                 exist_reward[id] = exist_status
                 focus_status = 'None' 
@@ -163,22 +186,26 @@ class Env:
                 focus_status = self.check_focus(bbox, img)
                 focus_reward[id] = focus_status
 
-                size_status = self.check_size(bbox)
+                size_status = self.check_size(bbox, img)
                 size_reward[id] = size_status
 
-            print(f'Drone[{id}] status: [{exist_status}], [{focus_status}], [{size_status}]')
+            #print(f'Drone[{id}] status: [{exist_status}], [{focus_status}], [{size_status}]')
 
         # decide if episode should be terminated
         done = False
+
         # fly below min height or above max height
         drone_pos = []
         for drone in droneList:
             drone_pos.append(self.dc.getDronePosition(drone)) 
         out_range = [False, False, False]
         for id, drone in enumerate(droneList):
+            print("drone_pos[id].z_val: ", drone_pos[id].z_val)
             if drone_pos[id].z_val > min_height or drone_pos[id].z_val < max_height: 
                 out_range[id] = True
 
+        print("has_collided: ", has_collided)
+        print("out_range: ", out_range)
         done = any(has_collided) or any(out_range)     
 
         # compute reward
@@ -207,17 +234,16 @@ class Env:
 
         return observation, reward, done, loginfo
 
+    def stabilize(self, drone):
+        #print("stabilize")
+        time.sleep(0.1)
+        self.dc.moveDroneBySelfFrame(drone, [0,0,-1], 0.125)
+        time.sleep(0.1)
+        self.dc.moveDroneBySelfFrame(drone, [0,0,1], 0.1)
+
     def check_focus(self, bbox, image):
         image_h, image_w, _ = image.shape
-        box = bbox[0][0][0] 
-        # from ratio to pixel
-        box[0] = int(box[0] * image_h)
-        box[2] = int(box[2] * image_h)
-        box[1] = int(box[1] * image_w)
-        box[3] = int(box[3] * image_w)
-
-        # tensorflow uses [ymin, xmin, ymax, xmax] convention for bounding box
-        ymin, xmin, ymax, xmax = box
+        xmin, xmax, ymin, ymax = bbox.xmin, bbox.xmax, bbox.ymin, bbox.ymax
         c_x = xmin + ((xmax - xmin) / 2)
         c_y = ymin + ((ymax - ymin) / 2)
 
@@ -232,16 +258,17 @@ class Env:
             'ymax': img_cen_y + (image_h * 0.2 / 2)  # Ymax
         }
 
-        if (c_x > fbbox['xmin'] and c_x < ffbox['xmax']) and (c_y > fbbox['ymin'] and c_y < ffbox['ymax']):
+        if (c_x > fbbox['xmin'] and c_x < fbbox['xmax']) and (c_y > fbbox['ymin'] and c_y < fbbox['ymax']):
             status = 'in'
         else:
             status = 'out'            
         return status
 
-    def check_size(self, bbox):
-        box = bbox[0][0][0]
-        y_delta = box[2] - box[0]
-        x_delta = box[3] - box[1]
+    def check_size(self, bbox, image):
+        image_h, image_w, _ = image.shape
+        xmin, xmax, ymin, ymax = bbox.xmin, bbox.xmax, bbox.ymin, bbox.ymax
+        y_delta = (ymax - ymin)/image_h
+        x_delta = (xmax - xmin)/image_w
         # if the bbox size is larger than certain size, then it will be in 'large' status, otherwise in 'small' status.
         if y_delta > 0.8 and x_delta > 0.25:
             status = 'large'

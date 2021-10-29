@@ -12,8 +12,8 @@ import cv2
 import os
 import numpy as np
 import json
-from inference_img import Yolov4
-#from yolov3_inference import *
+#from inference_img import Yolov4
+from yolov3_inference import *
 
 class DroneControl:
     def __init__(self, droneList, drone_id=0, inference=True):
@@ -27,9 +27,9 @@ class DroneControl:
         self.z_offset = self.get_spawn_z_offset(self.droneList[drone_id])
         self.inference = inference
         if self.inference:
-            self.yolo = Yolov4()
-            #yolo_weights = 'data/drone.h5'
-            #self.infer_model = YoloPredictor(yolo_weights)
+            #self.yolo = Yolov4()
+            yolo_weights = 'data/drone.h5'
+            self.infer_model = YoloPredictor(yolo_weights)
     
     def init_AirSim(self):
         """
@@ -239,20 +239,20 @@ class DroneControl:
             response = responses[0]
             img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8) # get numpy array
             img_rgb = img1d.reshape(response.height, response.width, 3)
-            results = self.yolo.predict(img_rgb)
-            self.yolo.display()
+            #results = self.yolo.predict(img_rgb)
+            #self.yolo.display()
 
-    # def inference_run_yv3(self, drone, cam = 0):
-    #     if self.inference:
-    #         responses = self.client.simGetImages([airsim.ImageRequest(
-    #             cam, airsim.ImageType.Scene, False, False)],vehicle_name=drone)  # scene vision image in png format
-    #         response = responses[0]
-    #         img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8) # get numpy array
-    #         img_rgb = img1d.reshape(response.height, response.width, 3)
-    #         bbox = self.infer_model.get_yolo_boxes(img_rgb[:,:,:3])
-    #         cv2.rectangle(img_rgb, (bbox.xmin, bbox.ymin), (bbox.xmax, bbox.ymax), (0,0,255), 2)
-    #         cv2.imshow('Inference', test_img)
-    #         cv2.waitKey(1)
+    def inference_run_yv3(self, drone, cam = 0):
+        if self.inference:
+            responses = self.client.simGetImages([airsim.ImageRequest(
+                cam, airsim.ImageType.Scene, False, False)],vehicle_name=drone)  # scene vision image in png format
+            response = responses[0]
+            img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8) # get numpy array
+            img_rgb = img1d.reshape(response.height, response.width, 3)
+            bbox = self.infer_model.get_yolo_boxes(img_rgb[:,:,:3])
+            cv2.rectangle(img_rgb, (bbox.xmin, bbox.ymin), (bbox.xmax, bbox.ymax), (0,0,255), 2)
+            cv2.imshow('Inference', test_img)
+            cv2.waitKey(1)
 
     def getPredBbox(self, frame):
         #return self.yolo.predict(frame)

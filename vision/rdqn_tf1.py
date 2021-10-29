@@ -7,20 +7,17 @@ from copy import deepcopy
 from collections import deque
 from datetime import datetime as dt
 import numpy as np
-#import tensorflow as tf
-import tensorflow.compat.v1 as tf
-#tf.disable_v2_behavior()
-#tf.config.run_functions_eagerly(True)
-import tensorflow.python.keras.backend as K
-from tensorflow.keras.layers import TimeDistributed, BatchNormalization, Flatten, Lambda, Concatenate
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dense, GRU, Input, ELU, Activation
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.models import Model
+import tensorflow as tf
+import keras.backend as K
+from keras.layers import TimeDistributed, BatchNormalization, Flatten, Lambda, Concatenate
+from keras.layers import Conv2D, MaxPooling2D, Dense, GRU, Input, ELU, Activation
+from keras.optimizers import Adam
+from keras.models import Model
 from PIL import Image
 import cv2
-from airsim_env import Env, ACTION
-from absl import app, flags, logging
-from absl.flags import FLAGS
+from airsim_env_tf1 import Env, ACTION
+#from absl import app, flags, logging
+#from absl.flags import FLAGS
 
 np.set_printoptions(suppress=True, precision=4)
 agent_name = 'rdqn'
@@ -153,8 +150,8 @@ class RDQNAgent(object):
         loss = K.mean(concatpreloss)
 
         optimizer = Adam(lr=self.lr)
-        #updates = optimizer.get_updates(self.critic.trainable_weights, [], loss)
-        updates = optimizer.get_updates(params=self.critic.trainable_weights, loss=loss)
+        updates = optimizer.get_updates(self.critic.trainable_weights, [], loss)
+        #updates = optimizer.get_updates(params=self.critic.trainable_weights, loss=loss)
         train = K.function(
             [self.critic.input[0], self.critic.input[1], action1, action2, action3, y1, y2, y3],
             [loss],
@@ -241,26 +238,26 @@ def transform_input(responses, img_height, img_width):
     return image
 
 def interpret_action(action):
-    scaling_factor = 0.5
+    scaling_factor = 1.0
     if action == 0:
-        quad_offset = (0, 0, 0)
+        # quad_offset: (x, y, z, action_type)
+        quad_offset = (0, 0, 0, 0)
     elif action == 1:
-        quad_offset = (scaling_factor, 0, 0)
+        quad_offset = (scaling_factor, 0, 0, 1)
     elif action == 2:
-        quad_offset = (0, scaling_factor, 0)
+        quad_offset = (0, scaling_factor, 0, 2)
     elif action == 3:
-        quad_offset = (0, 0, scaling_factor)
+        quad_offset = (0, 0, scaling_factor, 3)
     elif action == 4:
-        quad_offset = (-scaling_factor, 0, 0)
+        quad_offset = (-scaling_factor, 0, 0, 4)
     elif action == 5:
-        quad_offset = (0, -scaling_factor, 0)
+        quad_offset = (0, -scaling_factor, 0, 5)
     elif action == 6:
-        quad_offset = (0, 0, -scaling_factor)
+        quad_offset = (0, 0, -scaling_factor, 6)
 
     return quad_offset
 
-#if __name__ == '__main__':
-def main(_argv):
+if __name__ == '__main__':
     # CUDA config
     tf_config = tf.ConfigProto()
     tf_config.gpu_options.allow_growth = True
@@ -313,6 +310,7 @@ def main(_argv):
     episode = 0
     env = Env()
     if args.play:
+        print("Evaluation process")
         while True:
             try:
                 done = False
@@ -362,9 +360,9 @@ def main(_argv):
                     score += float(reward)
                     if float(reward) > bestReward:
                         bestReward = float(reward)
-                    print('%s' % (ACTION[action1]), end='\r', flush=True)
-                    print('%s' % (ACTION[action2]), end='\r', flush=True)
-                    print('%s' % (ACTION[action3]), end='\r', flush=True)
+                    print('Eval ACTION: %s' % (ACTION[action1]), end='\r', flush=True)
+                    print('Eval ACTION: %s' % (ACTION[action2]), end='\r', flush=True)
+                    print('Eval ACTION: %s' % (ACTION[action3]), end='\r', flush=True)
 
                     if args.verbose:
                         print('Step %d Action1 %s Action2 %s Action3 %s Reward %.2f Info1 %s Info2 %s Info3 %s:' % (timestep, real_action1, real_action2, real_action3, reward, info1, info2, info3))
@@ -387,6 +385,7 @@ def main(_argv):
                 break
     else:
         # Train
+        print("Training process")
         time_limit = 999
         highscore = -9999999999.
         if os.path.exists('save_stat/'+ agent_name + '_stat.csv'):
@@ -399,119 +398,116 @@ def main(_argv):
             with open('save_stat/'+ agent_name + '_highscore.csv', 'r') as f:
                 read = csv.reader(f)
                 highscore = float(next(reversed(list(read)))[0])
-                print('Best Y:', highscore)
+                print('Highscore:', highscore)
         global_step = 0
         global_train_num = 0
         while True:
-        #try:
-            done = False
-            bug = False
-
-            # stats
-            bestReward, timestep, score, avgQ = 0., 0, 0., 0.
-            train_num, loss = 0, 0.
-
-            observe = env.reset()
-            image, vel = observe
-            vel = np.array(vel)
-            try:
-                image = transform_input(image, args.img_height, args.img_width)
-            except:
-                continue
-            history = np.stack([image] * args.seqsize, axis=1)
-            vel = vel.reshape(1, -1)
-            state = [history, vel]
-            print(f'Main Loop: done: {done}, timestep: {timestep}, time_limit: {time_limit}')
-            while not done and timestep < time_limit:
-                print(f'Sub Loop: timestep: {timestep}, global_step: {global_step}')
-                timestep += 1
-                global_step += 1
-                if len(agent.memory) >= args.train_start and global_step >= args.train_rate:
-                    print('Training model')
-                    for _ in range(args.epoch):
-                        c_loss = agent.train_model()
-                        loss += float(c_loss)
-                        train_num += 1
-                        global_train_num += 1
-                    global_step = 0
-                if global_train_num >= args.target_rate:
-                    print('Updating target model')
-                    agent.update_target_model()
-                    global_train_num = 0
-                (action1, policy1, Qmax1), (action2, policy2, Qmax2), (action3, policy3, Qmax3) = agent.get_action(state)
-                real_action1, real_action2, real_action3 = interpret_action(action1), interpret_action(action2), interpret_action(action3)
-                observe, reward, done, info = env.step([real_action1,real_action2,real_action3])
-                image, vel = observe
-                vel = np.array(vel)
-                info1, info2, info3 = info[0]['status'], info[1]['status'], info[2]['status']
-
-                try:
-                    if timestep < 3 and info[0]['status'] == 'landed' and info[1]['status'] == 'landed' and info[2]['status'] == 'landed':
-                        raise Exception
-                    image = transform_input(image, args.img_height, args.img_width)
-                except:
-                    print('BUG')
-                    bug = True
-                    break
-                history = np.append(history[:, 1:], [image], axis=1)
-                vel = vel.reshape(1, -1)
-                next_state = [history, vel]
-                reward = np.sum(np.array(reward))
-                agent.append_memory(state, action1, action2, action3, reward, next_state, done)
+            try:  
+                done = False
+                bug = False
 
                 # stats
-                avgQ += float(Qmax1 + Qmax2 + Qmax3)
-                score += float(reward)
-                if float(reward) > bestReward:
-                    bestReward = float(reward)
+                bestReward, timestep, score, avgQ = 0., 0, 0., 0.
+                train_num, loss = 0, 0.
 
-                print('%s | %s' % (ACTION[action1], ACTION[policy1]), end='\r', flush=True)
-                print('%s | %s' % (ACTION[action2], ACTION[policy2]), end='\r', flush=True)
-                print('%s | %s' % (ACTION[action3], ACTION[policy3]), end='\r', flush=True)
+                observe = env.reset()
+                image, vel = observe
+                vel = np.array(vel)
+                try:
+                    image = transform_input(image, args.img_height, args.img_width)
+                except:
+                    continue
+                history = np.stack([image] * args.seqsize, axis=1)
+                vel = vel.reshape(1, -1)
+                state = [history, vel]
+                print(f'Main Loop: done: {done}, timestep: {timestep}, time_limit: {time_limit}')
+                while not done and timestep < time_limit:
+                    print(f'Sub Loop: timestep: {timestep}, global_step: {global_step}')
+                    timestep += 1
+                    global_step += 1
+                    if len(agent.memory) >= args.train_start and global_step >= args.train_rate:
+                        print('Training model')
+                        for _ in range(args.epoch):
+                            c_loss = agent.train_model()
+                            loss += float(c_loss)
+                            train_num += 1
+                            global_train_num += 1
+                        global_step = 0 
+                    if global_train_num >= args.target_rate:
+                        print('Updating target model')
+                        agent.update_target_model()
+                        global_train_num = 0
+                    (action1, policy1, Qmax1), (action2, policy2, Qmax2), (action3, policy3, Qmax3) = agent.get_action(state)
+                    real_action1, real_action2, real_action3 = interpret_action(action1), interpret_action(action2), interpret_action(action3)
+                    observe, reward, done, info = env.step([real_action1,real_action2,real_action3])
+                    image, vel = observe
+                    vel = np.array(vel)
+                    info1, info2, info3 = info[0]['status'], info[1]['status'], info[2]['status']
+                    print("Done: ", done)
+                    print("Timestep: ", timestep)
+                    try:
+                        print("STATUS: ", timestep, info[0]['status'], info[1]['status'], info[2]['status'])
+                        if timestep < 3 and info[0]['status'] == 'landed' and info[1]['status'] == 'landed' and info[2]['status'] == 'landed':
+                            raise Exception
+                        image = transform_input(image, args.img_height, args.img_width)
+                    except:
+                        print('BUG')
+                        bug = True
+                        break
+                    history = np.append(history[:, 1:], [image], axis=1)
+                    vel = vel.reshape(1, -1)
+                    next_state = [history, vel]
+                    reward = np.sum(np.array(reward))
+                    agent.append_memory(state, action1, action2, action3, reward, next_state, done)
 
-                if args.verbose:
-                    print('Step %d Action1 %s Action2 %s Action3 %s Reward %.2f Info1 %s Info2 %s Info3 %s:' % (timestep, real_action1, real_action2, real_action3, reward, info1, info2, info3))
+                    # stats
+                    avgQ += float(Qmax1 + Qmax2 + Qmax3)
+                    score += float(reward)
+                    if float(reward) > bestReward:
+                        bestReward = float(reward)
 
-                state = next_state
+                    print('ACTION: %s | %s' % (ACTION[action1], ACTION[policy1]), end='\r', flush=True)
+                    print('ACTION: %s | %s' % (ACTION[action2], ACTION[policy2]), end='\r', flush=True)
+                    print('ACTION: %s | %s' % (ACTION[action3], ACTION[policy3]), end='\r', flush=True)
 
-                if agent.epsilon > agent.epsilon_end:
-                    agent.epsilon -= agent.epsilon_decay
+                    if args.verbose:
+                        print('Step %d Action1 %s Action2 %s Action3 %s Reward %.2f Info1 %s Info2 %s Info3 %s:' % (timestep, real_action1, real_action2, real_action3, reward, info1, info2, info3))
 
-            if bug:
-                continue
-            if train_num:
-                loss /= train_num
-            avgQ /= timestep
+                    state = next_state
 
-            # done
-            if args.verbose or episode % 10 == 0:
-                print('Ep %d: BestReward %.3f Step %d Score %.2f AvgQ %.2f'
-                        % (episode, bestReward, timestep, score, avgQ))
-            stats = [
-                episode, timestep, score, bestReward, \
-                loss, info[0]['level'], info[1]['level'], info[2]['level'], avgQ, info[0]['status'], info[1]['status'], info[2]['status']
-            ]
-            # log stats
-            with open('save_stat/'+ agent_name + '_stat.csv', 'a', encoding='utf-8', newline='') as f:
-                wr = csv.writer(f)
-                wr.writerow(['%.4f' % s if type(s) is float else s for s in stats])
-            if highscore < bestReward:
-                highscore = bestReward
-                with open('save_stat/'+ agent_name + '_highscore.csv', 'w', encoding='utf-8', newline='') as f:
+                    if agent.epsilon > agent.epsilon_end:
+                        agent.epsilon -= agent.epsilon_decay
+
+                if bug:
+                    continue
+                if train_num:
+                    loss /= train_num
+                avgQ /= timestep
+
+                # done
+                if args.verbose or episode % 10 == 0:
+                    print('Ep %d: BestReward %.3f Step %d Score %.2f AvgQ %.2f'
+                            % (episode, bestReward, timestep, score, avgQ))
+                stats = [
+                    episode, timestep, score, bestReward, \
+                    loss, info[0]['level'], info[1]['level'], info[2]['level'], avgQ, info[0]['status'], info[1]['status'], info[2]['status']
+                ]
+                # log stats
+                with open('save_stat/'+ agent_name + '_stat.csv', 'a', encoding='utf-8', newline='') as f:
                     wr = csv.writer(f)
-                    wr.writerow('%.4f' % s if type(s) is float else s for s in [highscore, episode, score, dt.now().strftime('%Y-%m-%d %H:%M:%S')])
-                agent.save_model('./save_model/'+ agent_name + '_best')
-            agent.save_model('./save_model/'+ agent_name)
-            episode += 1
-        # except KeyboardInterrupt:
-        #     env.disconnect()
-        #     break
-        # except Exception as e:
-        #     print(f'{e}')
-        #     break
+                    wr.writerow(['%.4f' % s if type(s) is float else s for s in stats])
+                if highscore < bestReward:
+                    highscore = bestReward
+                    with open('save_stat/'+ agent_name + '_highscore.csv', 'w', encoding='utf-8', newline='') as f:
+                        wr = csv.writer(f)
+                        wr.writerow('%.4f' % s if type(s) is float else s for s in [highscore, episode, score, dt.now().strftime('%Y-%m-%d %H:%M:%S')])
+                    agent.save_model('./save_model/'+ agent_name + '_best')
+                agent.save_model('./save_model/'+ agent_name)
+                episode += 1
+            except KeyboardInterrupt:
+                env.disconnect()
+                break
+            except Exception as e:
+                print(f'{e}')
+                break
 
-if __name__ == '__main__':
-    try:
-        app.run(main)
-    except SystemExit:
-        pass

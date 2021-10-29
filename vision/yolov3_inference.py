@@ -64,6 +64,10 @@ class YoloPredictor:
         self.correct_yolo_boxes(boxes, image.shape[0], image.shape[1])
 
         self.do_nms(boxes)
+        #print("boxes:", boxes)
+        #print("boxes type:", type(boxes))
+        if boxes == []:
+            return []
         return boxes[0]
 
     def preprocess_input(self, image):

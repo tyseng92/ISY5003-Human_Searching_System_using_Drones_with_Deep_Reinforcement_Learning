@@ -14,7 +14,8 @@ class MoveDrone(object):
         self.target_drone = drone_list[drone_id]
         self.spd = 1
         self.angle_spd = 10
-        self.move_time = 0.1
+        #self.move_time = 0.1
+        self.move_time = 2
         # [[front_right cam orientation], [front_left cam orientation] ,[back_center cam orientation]]
         #self.camera_angle = [[-50, 0, 60], [-50, 0, -60], [-50, 0, 0]] 
         self.camera_angle = [[-50, 0, 0]]
@@ -56,7 +57,7 @@ class MoveDrone(object):
     def on_release(self, key):
         print('{0} released'.format(
             key))
-        self.stop()
+        #self.stop()
         # press esc to end
         if key == keyboard.Key.esc:
             return False
@@ -80,36 +81,45 @@ class MoveDrone(object):
                 '4':self.change_alt_top,
                 '5':self.change_alt_bottom,
                 'x':self.check_position,
-                't':self.gps_check
+                't':self.gps_check,
+                'y':self.stop
                 }
         func=switcher.get(char,lambda :'Invalid Key!')
         return func()
 
     def front(self):
         self.dc.moveDroneBySelfFrame(self.target_drone, [self.spd,0,0], self.move_time)
-        #self.stabilize()
+        self.stabilize()
 
     def back(self):
         self.dc.moveDroneBySelfFrame(self.target_drone, [-self.spd,0,0], self.move_time)
-        #self.stabilize()
+        self.stabilize()
 
     def left(self):
         self.dc.moveDroneBySelfFrame(self.target_drone, [0,-self.spd,0], self.move_time)
+        self.stabilize()
 
     def right(self):
         self.dc.moveDroneBySelfFrame(self.target_drone, [0,self.spd,0], self.move_time)
+        self.stabilize()
 
     def top(self):
-        self.dc.moveDroneBySelfFrame(self.target_drone, [0,0,self.spd], self.move_time)
+        # negative for top in NED frame
+        self.dc.moveDroneBySelfFrame(self.target_drone, [0,0,-self.spd], self.move_time)
+        self.stabilize()
 
     def bottom(self):
-        self.dc.moveDroneBySelfFrame(self.target_drone, [0,0,-self.spd], self.move_time)
+        # positve for bottom in NED frame
+        self.dc.moveDroneBySelfFrame(self.target_drone, [0,0,self.spd], self.move_time)
+        self.stabilize()
 
     def clockwise(self):
         self.dc.turnDroneBySelfFrame(self.target_drone, -self.angle_spd, self.move_time)
+        self.stabilize()
 
     def anticlockwise(self):
         self.dc.turnDroneBySelfFrame(self.target_drone, self.angle_spd, self.move_time)
+        self.stabilize()
 
     def cam_up(self):
         #self.camera_angle[0][0] += 5
@@ -177,9 +187,9 @@ class MoveDrone(object):
     def stabilize(self):
         #print("stabilize")
         time.sleep(0.1)
-        self.top()
+        self.dc.moveDroneBySelfFrame(self.target_drone, [0,0,-self.spd], 0.125)
         time.sleep(0.1)
-        self.bottom()
+        self.dc.moveDroneBySelfFrame(self.target_drone, [0,0,self.spd], 0.1)
 
     def capture(self):
         self.stop()
@@ -197,7 +207,7 @@ class MoveDrone(object):
         #print(self.target_drone)
         self.dc.moveDroneBySelfFrame(self.target_drone, [0,0,0], self.move_time)
         self.dc.hoverAsync(self.target_drone)
-        self.stabilize()
+        #self.stabilize()
 
     def gps_check(self):
         gps = self.dc.getGpsData(self.target_drone)

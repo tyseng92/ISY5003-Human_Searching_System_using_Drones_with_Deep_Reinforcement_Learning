@@ -7,20 +7,17 @@ from copy import deepcopy
 from collections import deque
 from datetime import datetime as dt
 import numpy as np
-#import tensorflow as tf
-import tensorflow.compat.v1 as tf
-#tf.disable_v2_behavior()
-#tf.config.run_functions_eagerly(True)
-import tensorflow.python.keras.backend as K
-from tensorflow.keras.layers import TimeDistributed, BatchNormalization, Flatten, Lambda, Concatenate
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dense, GRU, Input, ELU, Activation
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.models import Model
+import tensorflow as tf
+import keras.backend as K
+from keras.layers import TimeDistributed, BatchNormalization, Flatten, Lambda, Concatenate
+from keras.layers import Conv2D, MaxPooling2D, Dense, GRU, Input, ELU, Activation
+from keras.optimizers import Adam
+from keras.models import Model
 from PIL import Image
 import cv2
-from airsim_env import Env, ACTION
-from absl import app, flags, logging
-from absl.flags import FLAGS
+from airsim_env_tf1 import Env, ACTION
+#from absl import app, flags, logging
+#from absl.flags import FLAGS
 
 np.set_printoptions(suppress=True, precision=4)
 agent_name = 'rdqn'
@@ -153,8 +150,8 @@ class RDQNAgent(object):
         loss = K.mean(concatpreloss)
 
         optimizer = Adam(lr=self.lr)
-        #updates = optimizer.get_updates(self.critic.trainable_weights, [], loss)
-        updates = optimizer.get_updates(params=self.critic.trainable_weights, loss=loss)
+        updates = optimizer.get_updates(self.critic.trainable_weights, [], loss)
+        #updates = optimizer.get_updates(params=self.critic.trainable_weights, loss=loss)
         train = K.function(
             [self.critic.input[0], self.critic.input[1], action1, action2, action3, y1, y2, y3],
             [loss],
@@ -259,11 +256,10 @@ def interpret_action(action):
 
     return quad_offset
 
-#if __name__ == '__main__':
-def main(_argv):
+if __name__ == '__main__':
     # CUDA config
-    tf_config = tf.ConfigProto()
-    tf_config.gpu_options.allow_growth = True
+    #tf_config = tf.ConfigProto()
+    #tf_config.gpu_options.allow_growth = True
 
     # argument parser
     parser = argparse.ArgumentParser()
@@ -403,7 +399,7 @@ def main(_argv):
         global_step = 0
         global_train_num = 0
         while True:
-        #try:
+        # try:
             done = False
             bug = False
 
@@ -510,8 +506,9 @@ def main(_argv):
         #     print(f'{e}')
         #     break
 
-if __name__ == '__main__':
-    try:
-        app.run(main)
-    except SystemExit:
-        pass
+# if __name__ == '__main__':
+#     try:
+#         app.run(main)
+#     except SystemExit:
+#         pass
+#     main()

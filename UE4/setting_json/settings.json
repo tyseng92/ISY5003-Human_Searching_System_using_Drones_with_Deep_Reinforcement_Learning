@@ -22,7 +22,7 @@
 	"Vehicles": {
 		"Drone0": {
 			"VehicleType": "SimpleFlight",
-			"X": 3, "Y": 0, "Z": -2.5,
+			"X": 3, "Y": 0, "Z": 0,
 			"Sensors": {
 				"Gps1": {
 					"SensorType": 3,
@@ -41,7 +41,7 @@
 		},
 		"Drone1": {
 			"VehicleType": "SimpleFlight",
-			"X": 0, "Y": -3, "Z": -2.5,
+			"X": 0, "Y": -3, "Z": 0,
 			"Sensors": {
 				"Gps1": {
 					"SensorType": 3,
@@ -60,7 +60,7 @@
 		},
 		"Drone2": {
 			"VehicleType": "SimpleFlight",
-			"X": 0, "Y": 3, "Z": -2.5,
+			"X": 0, "Y": 3, "Z": 0,
 			"Sensors": {
 				"Gps1": {
 					"SensorType": 3,

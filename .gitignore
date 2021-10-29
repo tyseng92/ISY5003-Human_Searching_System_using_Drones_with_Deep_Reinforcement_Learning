@@ -3,3 +3,5 @@
 *.weights
 *.mp4
 vision/checkpoints
+*.h5
+*.csv
