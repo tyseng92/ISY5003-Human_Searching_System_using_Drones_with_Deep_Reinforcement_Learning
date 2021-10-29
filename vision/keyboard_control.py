@@ -2,7 +2,7 @@ import airsim
 import os
 import time
 from pynput import keyboard
-from DroneControlAPI import DroneControl
+from DroneControlAPI_yv3 import DroneControl
 from absl import app, flags, logging
 from absl.flags import FLAGS
 
@@ -82,7 +82,8 @@ class MoveDrone(object):
                 '5':self.change_alt_bottom,
                 'x':self.check_position,
                 't':self.gps_check,
-                'y':self.stop
+                'y':self.stop,
+                'u':self.area
                 }
         func=switcher.get(char,lambda :'Invalid Key!')
         return func()
@@ -194,7 +195,7 @@ class MoveDrone(object):
     def capture(self):
         self.stop()
         # change cam id to 1, 2, or 4
-        self.dc.captureImg(self.target_drone, cam = 1)
+        self.dc.captureImg(self.target_drone, cam = 0)
     
     def inference_run(self):
         print("self.inference:", self.inference)
@@ -212,6 +213,9 @@ class MoveDrone(object):
     def gps_check(self):
         gps = self.dc.getGpsData(self.target_drone)
         print("gps:", gps)
+
+    def area(self):
+        self.dc.testAreaCoverage(self.target_drone)
 
 def main(_argv):
     droneList = ['Drone0', 'Drone1', 'Drone2']
