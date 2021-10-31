@@ -15,14 +15,14 @@
 	  ]
 	},
 	"SubWindows": [
-		{"WindowID": 0, "CameraName": "2", "ImageType": 0, "VehicleName": "Drone0", "Visible": false},
-		{"WindowID": 1, "CameraName": "1", "ImageType": 0, "VehicleName": "Drone0", "Visible": false},
-		{"WindowID": 2, "CameraName": "0", "ImageType": 0, "VehicleName": "Drone0", "Visible": true}
+		{"WindowID": 0, "CameraName": "0", "ImageType": 0, "VehicleName": "Drone0", "Visible": true},
+		{"WindowID": 1, "CameraName": "0", "ImageType": 0, "VehicleName": "Drone1", "Visible": true},
+		{"WindowID": 2, "CameraName": "0", "ImageType": 0, "VehicleName": "Drone2", "Visible": true}
 	],
 	"Vehicles": {
 		"Drone0": {
 			"VehicleType": "SimpleFlight",
-			"X": 3, "Y": 0, "Z": 0,
+			"X": 3, "Y": 0, "Z": -0.2,
 			"Sensors": {
 				"Gps1": {
 					"SensorType": 3,
@@ -31,6 +31,48 @@
 				"Distance1": {
 					"SensorType": 5,
 					"Enabled": true,
+					"DrawDebugPoints": true
+				},
+				"Distance2": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": 90, 
+					"DrawDebugPoints": true
+				},
+				"Distance3": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": -90,
+					"DrawDebugPoints": true
+				},
+				"Distance4": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": 180,
+					"DrawDebugPoints": true
+				},
+				"Distance5": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": 45, 
+					"DrawDebugPoints": true
+				},
+				"Distance6": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw":-45, 
+					"DrawDebugPoints": true
+				},
+				"Distance7": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": 135,
+					"DrawDebugPoints": true
+				},
+				"Distance8": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": -135,
 					"DrawDebugPoints": true
 				},
 				"Imu1": {
@@ -41,7 +83,7 @@
 		},
 		"Drone1": {
 			"VehicleType": "SimpleFlight",
-			"X": 0, "Y": -3, "Z": 0,
+			"X": 0, "Y": -3, "Z": -0.2,
 			"Sensors": {
 				"Gps1": {
 					"SensorType": 3,
@@ -52,6 +94,48 @@
 					"Enabled": true,
 					"DrawDebugPoints": true
 				},
+				"Distance2": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": 90, 
+					"DrawDebugPoints": true
+				},
+				"Distance3": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": -90,
+					"DrawDebugPoints": true
+				},
+				"Distance4": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": 180,
+					"DrawDebugPoints": true
+				},
+				"Distance5": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": 45, 
+					"DrawDebugPoints": true
+				},
+				"Distance6": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw":-45, 
+					"DrawDebugPoints": true
+				},
+				"Distance7": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": 135,
+					"DrawDebugPoints": true
+				},
+				"Distance8": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": -135,
+					"DrawDebugPoints": true
+				},
 				"Imu1": {
 					"SensorType": 2,
 					"Enabled": true
@@ -60,7 +144,7 @@
 		},
 		"Drone2": {
 			"VehicleType": "SimpleFlight",
-			"X": 0, "Y": 3, "Z": 0,
+			"X": 0, "Y": 3, "Z": -0.2,
 			"Sensors": {
 				"Gps1": {
 					"SensorType": 3,
@@ -69,6 +153,48 @@
 				"Distance1": {
 					"SensorType": 5,
 					"Enabled": true,
+					"DrawDebugPoints": true
+				},
+				"Distance2": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": 90, 
+					"DrawDebugPoints": true
+				},
+				"Distance3": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": -90,
+					"DrawDebugPoints": true
+				},
+				"Distance4": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": 180,
+					"DrawDebugPoints": true
+				},
+				"Distance5": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": 45, 
+					"DrawDebugPoints": true
+				},
+				"Distance6": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw":-45, 
+					"DrawDebugPoints": true
+				},
+				"Distance7": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": 135,
+					"DrawDebugPoints": true
+				},
+				"Distance8": {
+					"SensorType": 5,
+					"Enabled": true,
+					"Yaw": -135,
 					"DrawDebugPoints": true
 				},
 				"Imu1": {

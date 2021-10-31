@@ -13,8 +13,9 @@ import os
 import numpy as np
 import json
 #from inference_img import Yolov4
-from yolov3_inference import *
+#from yolov3_inference import *
 from grid_coverage import covered_area, reset_grid
+from yolov4_inference import Yolov4
 
 class DroneControl:
     def __init__(self, droneList, drone_id=0, inference=True):
@@ -28,9 +29,9 @@ class DroneControl:
         self.z_offset = self.get_spawn_z_offset(self.droneList[drone_id])
         self.inference = inference
         if self.inference:
-            #self.yolo = Yolov4()
-            yolo_weights = 'data/drone.h5'
-            self.infer_model = YoloPredictor(yolo_weights)
+            self.yolo = Yolov4()
+            #yolo_weights = 'data/drone.h5'
+            #self.infer_model = YoloPredictor(yolo_weights)
     
     def init_AirSim(self):
         """
@@ -252,8 +253,30 @@ class DroneControl:
             img_rgb = img1d.reshape(response.height, response.width, 3)
             bbox = self.infer_model.get_yolo_boxes(img_rgb[:,:,:3])
             cv2.rectangle(img_rgb, (bbox.xmin, bbox.ymin), (bbox.xmax, bbox.ymax), (0,0,255), 2)
-            cv2.imshow('Inference', test_img)
+            cv2.imshow('Inference', img_rgb)
             cv2.waitKey(1)
+
+    def inference_run_yv4(self, drone, cam = 0):
+        if self.inference:
+            responses = self.client.simGetImages([airsim.ImageRequest(
+                cam, airsim.ImageType.Scene, False, False)],vehicle_name=drone)  # scene vision image in png format
+            response = responses[0]
+            img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8) # get numpy array
+            img_rgb = img1d.reshape(response.height, response.width, 3)
+            bbox = self.yolo.predict(img_rgb)
+            print("bbox: ", bbox)
+            self.yolo.display(bbox, img_rgb)
+
+    def predict_yv4(self, img_rgb):
+        bbox = self.yolo.predict(img_rgb)
+        print("bbox: ", bbox)
+        if bbox != []:
+            self.yolo.display(bbox, img_rgb)
+        return bbox
+
+    def convert_bbox(self, x, y, w, h):
+        xmin, ymin, xmax, ymax = self.yolo.convertBack(x, y, w, h)
+        return xmin, ymin, xmax, ymax
 
     def getPredBbox(self, frame):
         #return self.yolo.predict(frame)
@@ -316,7 +339,7 @@ class DroneControl:
         #print("init_alt:", pos.z_val)
         #print("z_offset:", self.z_offset)
         z = altitude-self.z_offset
-        print("z:",z)
+        #print("z:",z)
         self.client.moveToPositionAsync(vehicle_name=drone,
                                         x=pos.x_val, y=pos.y_val, z=z, velocity=1, timeout_sec=60, 
                                         drivetrain=airsim.DrivetrainType.MaxDegreeOfFreedom, 

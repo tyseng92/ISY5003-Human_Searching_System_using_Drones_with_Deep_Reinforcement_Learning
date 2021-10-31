@@ -2,7 +2,7 @@ import airsim
 import os
 import time
 from pynput import keyboard
-from DroneControlAPI_yv3 import DroneControl
+from DroneControlAPI_yv4 import DroneControl
 from absl import app, flags, logging
 from absl.flags import FLAGS
 
@@ -204,7 +204,7 @@ class MoveDrone(object):
         if self.inference:
             self.stop()
             # change cam id to 1, 2, or 4
-            self.dc.inference_run_yv3(self.target_drone, cam = 1)
+            self.dc.inference_run_yv4(self.target_drone, cam = 0)
 
     def stop(self):
         #print(self.target_drone)
@@ -223,14 +223,17 @@ class MoveDrone(object):
         self.dc.reset_area()
 
     def dist_sensor(self):
-        dist = self.dc.getDistanceData("Distance1", self.target_drone).distance
-        print("Dist sensor: ", dist)
+        for i in range(1,9):
+            dsensor = "Distance" + str(i)
+            dist = self.dc.getDistanceData(dsensor, self.target_drone).distance
+            print("Dsensor: ", i)
+            print("Dist sensor: ", dist)
 
 def main(_argv):
     droneList = ['Drone0', 'Drone1', 'Drone2']
     #md = MoveDrone(droneList, drone_id=0)
     # change drone with drone_id: 0, 1, or 2, set inference to 'True' to use inference function
-    md = MoveDrone(droneList, drone_id=0, inference=False)
+    md = MoveDrone(droneList, drone_id=0, inference=True)
 
 if __name__ == '__main__':
     try:

@@ -39,7 +39,9 @@ class RDQNAgent(object):
         self.decay_step = decay_step
         self.epsilon_decay = (epsilon - epsilon_end) / decay_step
 
-        self.sess = tf.Session()
+        tf_config = tf.ConfigProto()
+        tf_config.gpu_options.per_process_gpu_memory_fraction = 0.4
+        self.sess = tf.Session(config=tf_config)
         K.set_session(self.sess)
 
         self.critic = self.build_model()
@@ -262,9 +264,9 @@ def interpret_action(action):
 
 if __name__ == '__main__':
     # CUDA config
-    tf_config = tf.ConfigProto()
-    tf_config.gpu_options.allow_growth = True
-
+    #tf_config = tf.ConfigProto()
+    #tf_config.gpu_options.per_process_gpu_memory_fraction = 0.4
+    #tf_config.gpu_options.allow_growth = True
     # argument parser
     parser = argparse.ArgumentParser()
     parser.add_argument('--verbose',    action='store_true')
@@ -405,121 +407,121 @@ if __name__ == '__main__':
         global_step = 0
         global_train_num = 0
         while True:
-            try:  
-                done = False
-                bug = False
+        # try:  
+            done = False
+            bug = False
 
-                # stats
-                bestReward, timestep, score, avgQ = 0., 0, 0., 0.
-                train_num, loss = 0, 0.
+            # stats
+            bestReward, timestep, score, avgQ = 0., 0, 0., 0.
+            train_num, loss = 0, 0.
 
-                observe = env.reset()
+            observe = env.reset()
+            image, vel = observe
+            vel = np.array(vel)
+            try:
+                image = transform_input(image, args.img_height, args.img_width)
+            except:
+                continue
+            history = np.stack([image] * args.seqsize, axis=1)
+            vel = vel.reshape(1, -1)
+            state = [history, vel]
+            print(f'Main Loop: done: {done}, timestep: {timestep}, time_limit: {time_limit}')
+            while not done and timestep < time_limit:
+                print(f'Sub Loop: timestep: {timestep}, global_step: {global_step}')
+                timestep += 1
+                global_step += 1
+                print("len(agent.memory): ", len(agent.memory))
+                print("args.train_start: ", args.train_start)
+                print("args.train_rate: ", args.train_rate)
+                if len(agent.memory) >= args.train_start and global_step >= args.train_rate:
+                    print('Training model')
+                    for _ in range(args.epoch):
+                        c_loss = agent.train_model()
+                        loss += float(c_loss)
+                        train_num += 1
+                        global_train_num += 1
+                    global_step = 0 
+                if global_train_num >= args.target_rate:
+                    print('Updating target model')
+                    agent.update_target_model()
+                    global_train_num = 0
+                (action1, policy1, Qmax1), (action2, policy2, Qmax2), (action3, policy3, Qmax3) = agent.get_action(state)
+                real_action1, real_action2, real_action3 = interpret_action(action1), interpret_action(action2), interpret_action(action3)
+                observe, reward, done, info = env.step([real_action1,real_action2,real_action3])
                 image, vel = observe
                 vel = np.array(vel)
+                info1, info2, info3 = info[0]['status'], info[1]['status'], info[2]['status']
+                print("Done: ", done)
+                print("Timestep: ", timestep)
                 try:
+                    print("STATUS: ", timestep, info[0]['status'], info[1]['status'], info[2]['status'])
+                    if timestep < 3 and info[0]['status'] == 'landed' and info[1]['status'] == 'landed' and info[2]['status'] == 'landed':
+                        raise Exception
                     image = transform_input(image, args.img_height, args.img_width)
                 except:
-                    continue
-                history = np.stack([image] * args.seqsize, axis=1)
+                    print('BUG')
+                    bug = True
+                    break
+                history = np.append(history[:, 1:], [image], axis=1)
                 vel = vel.reshape(1, -1)
-                state = [history, vel]
-                print(f'Main Loop: done: {done}, timestep: {timestep}, time_limit: {time_limit}')
-                while not done and timestep < time_limit:
-                    print(f'Sub Loop: timestep: {timestep}, global_step: {global_step}')
-                    timestep += 1
-                    global_step += 1
-                    print("len(agent.memory): ", len(agent.memory))
-                    print("args.train_start: ", args.train_start)
-                    print("args.train_rate: ", args.train_rate)
-                    if len(agent.memory) >= args.train_start and global_step >= args.train_rate:
-                        print('Training model')
-                        for _ in range(args.epoch):
-                            c_loss = agent.train_model()
-                            loss += float(c_loss)
-                            train_num += 1
-                            global_train_num += 1
-                        global_step = 0 
-                    if global_train_num >= args.target_rate:
-                        print('Updating target model')
-                        agent.update_target_model()
-                        global_train_num = 0
-                    (action1, policy1, Qmax1), (action2, policy2, Qmax2), (action3, policy3, Qmax3) = agent.get_action(state)
-                    real_action1, real_action2, real_action3 = interpret_action(action1), interpret_action(action2), interpret_action(action3)
-                    observe, reward, done, info = env.step([real_action1,real_action2,real_action3])
-                    image, vel = observe
-                    vel = np.array(vel)
-                    info1, info2, info3 = info[0]['status'], info[1]['status'], info[2]['status']
-                    print("Done: ", done)
-                    print("Timestep: ", timestep)
-                    try:
-                        print("STATUS: ", timestep, info[0]['status'], info[1]['status'], info[2]['status'])
-                        if timestep < 3 and info[0]['status'] == 'landed' and info[1]['status'] == 'landed' and info[2]['status'] == 'landed':
-                            raise Exception
-                        image = transform_input(image, args.img_height, args.img_width)
-                    except:
-                        print('BUG')
-                        bug = True
-                        break
-                    history = np.append(history[:, 1:], [image], axis=1)
-                    vel = vel.reshape(1, -1)
-                    next_state = [history, vel]
-                    reward = np.sum(np.array(reward))
-                    agent.append_memory(state, action1, action2, action3, reward, next_state, done)
+                next_state = [history, vel]
+                reward = np.sum(np.array(reward))
+                agent.append_memory(state, action1, action2, action3, reward, next_state, done)
 
-                    # stats
-                    avgQ += float(Qmax1 + Qmax2 + Qmax3)
-                    score += float(reward)
-                    if float(reward) > bestReward:
-                        bestReward = float(reward)
-                    #print("reward: ", reward)
+                # stats
+                avgQ += float(Qmax1 + Qmax2 + Qmax3)
+                score += float(reward)
+                if float(reward) > bestReward:
+                    bestReward = float(reward)
+                #print("reward: ", reward)
 
-                    # print('ACTION: %s | %s' % (ACTION[action1], ACTION[policy1]), end='\r', flush=True)
-                    # print('ACTION: %s | %s' % (ACTION[action2], ACTION[policy2]), end='\r', flush=True)
-                    # print('ACTION: %s | %s' % (ACTION[action3], ACTION[policy3]), end='\r', flush=True)
+                # print('ACTION: %s | %s' % (ACTION[action1], ACTION[policy1]), end='\r', flush=True)
+                # print('ACTION: %s | %s' % (ACTION[action2], ACTION[policy2]), end='\r', flush=True)
+                # print('ACTION: %s | %s' % (ACTION[action3], ACTION[policy3]), end='\r', flush=True)
 
-                    print('ACTION: %s | %s' % (ACTION[action1], ACTION[policy1]))
-                    print('ACTION: %s | %s' % (ACTION[action2], ACTION[policy2]))
-                    print('ACTION: %s | %s' % (ACTION[action3], ACTION[policy3]))
+                print('ACTION: %s | %s' % (ACTION[action1], ACTION[policy1]))
+                print('ACTION: %s | %s' % (ACTION[action2], ACTION[policy2]))
+                print('ACTION: %s | %s' % (ACTION[action3], ACTION[policy3]))
 
-                    if args.verbose:
-                        print('Step %d Action1 %s Action2 %s Action3 %s Reward %.2f Info1 %s Info2 %s Info3 %s:' % (timestep, real_action1, real_action2, real_action3, reward, info1, info2, info3))
+                if args.verbose:
+                    print('Step %d Action1 %s Action2 %s Action3 %s Reward %.2f Info1 %s Info2 %s Info3 %s:' % (timestep, real_action1, real_action2, real_action3, reward, info1, info2, info3))
 
-                    state = next_state
+                state = next_state
 
-                    if agent.epsilon > agent.epsilon_end:
-                        agent.epsilon -= agent.epsilon_decay
-                    print("epsilon: ", agent.epsilon)
+                if agent.epsilon > agent.epsilon_end:
+                    agent.epsilon -= agent.epsilon_decay
+                print("epsilon: ", agent.epsilon)
 
-                if bug:
-                    continue
-                if train_num:
-                    loss /= train_num
-                avgQ /= timestep
+            if bug:
+                continue
+            if train_num:
+                loss /= train_num
+            avgQ /= timestep
 
-                # done
-                if args.verbose or episode % 10 == 0:
-                    print('Ep %d: BestReward %.3f Step %d Score %.2f AvgQ %.2f'
-                            % (episode, bestReward, timestep, score, avgQ))
-                stats = [
-                    episode, timestep, score, bestReward, \
-                    loss, info[0]['level'], info[1]['level'], info[2]['level'], avgQ, info[0]['status'], info[1]['status'], info[2]['status']
-                ]
-                # log stats
-                with open('save_stat/'+ agent_name + '_stat.csv', 'a', encoding='utf-8', newline='') as f:
+            # done
+            if args.verbose or episode % 10 == 0:
+                print('Ep %d: BestReward %.3f Step %d Score %.2f AvgQ %.2f'
+                        % (episode, bestReward, timestep, score, avgQ))
+            stats = [
+                episode, timestep, score, bestReward, \
+                loss, info[0]['level'], info[1]['level'], info[2]['level'], avgQ, info[0]['status'], info[1]['status'], info[2]['status']
+            ]
+            # log stats
+            with open('save_stat/'+ agent_name + '_stat.csv', 'a', encoding='utf-8', newline='') as f:
+                wr = csv.writer(f)
+                wr.writerow(['%.4f' % s if type(s) is float else s for s in stats])
+            if highscore < bestReward:
+                highscore = bestReward
+                with open('save_stat/'+ agent_name + '_highscore.csv', 'w', encoding='utf-8', newline='') as f:
                     wr = csv.writer(f)
-                    wr.writerow(['%.4f' % s if type(s) is float else s for s in stats])
-                if highscore < bestReward:
-                    highscore = bestReward
-                    with open('save_stat/'+ agent_name + '_highscore.csv', 'w', encoding='utf-8', newline='') as f:
-                        wr = csv.writer(f)
-                        wr.writerow('%.4f' % s if type(s) is float else s for s in [highscore, episode, score, dt.now().strftime('%Y-%m-%d %H:%M:%S')])
-                    agent.save_model('./save_model/'+ agent_name + '_best')
-                agent.save_model('./save_model/'+ agent_name)
-                episode += 1
-            except KeyboardInterrupt:
-                env.disconnect()
-                break
-            except Exception as e:
-                print(f'{e}')
-                break
+                    wr.writerow('%.4f' % s if type(s) is float else s for s in [highscore, episode, score, dt.now().strftime('%Y-%m-%d %H:%M:%S')])
+                agent.save_model('./save_model/'+ agent_name + '_best')
+            agent.save_model('./save_model/'+ agent_name)
+            episode += 1
+        # except KeyboardInterrupt:
+        #     env.disconnect()
+        #     break
+        # except Exception as e:
+        #     print(f'{e}')
+        #     break
 

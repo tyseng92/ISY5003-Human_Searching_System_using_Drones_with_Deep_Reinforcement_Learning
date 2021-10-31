@@ -6,3 +6,4 @@ vision/checkpoints
 *.h5
 *.csv
 *.png
+vision/darknet

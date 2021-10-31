@@ -3,9 +3,9 @@ import numpy as np
 import airsim
 import config
 from geopy import distance
-from DroneControlAPI_yv3 import DroneControl
+from DroneControlAPI_yv4 import DroneControl
 from keyboard_control import MoveDrone
-from yolov3_inference import *
+#from yolov3_inference import *
 
 import math
 import itertools
@@ -16,6 +16,12 @@ timeslice = 0.5 / clockspeed
 goalY = 57
 outY = -0.5
 angle_spd = 10
+
+# distance sensor config
+dsensor_num = 8
+dsensor_thrd = 10
+
+focus_size = 0.7
 
 # base on UE4 coordinate with NED frame
 floorZ = 0 
@@ -36,7 +42,7 @@ class Env:
         # connect to the AirSim simulator
         self.dc = DroneControl(droneList)
         # Load the inference model
-        self.infer_model = YoloPredictor(yolo_weights)
+        #self.infer_model = YoloPredictor(yolo_weights)
         self.action_size = 3
         self.altitude = -8
         #self.altitude = -2.5
@@ -198,10 +204,13 @@ class Env:
         # penalty for distance sensor
         dsensor_reward = [False, False, False]
         for id, drone in enumerate(droneList):
-            dist_sensor = self.dc.getDistanceData("Distance1", drone).distance
-            if dist_sensor <= 10:
-                dsensor_reward[id] = True
-            print("dist_sensor: ", dist_sensor)
+            for i in range(1,dsensor_num+1):
+                dsensor = "Distance" + str(i)
+                dist_sensor = self.dc.getDistanceData(dsensor, drone).distance
+                if dist_sensor <= dsensor_thrd:
+                    dsensor_reward[id] = True
+                    break
+            #print("dist_sensor: ", dist_sensor)
         print("dsensor_reward: ", dsensor_reward)
         # quad_spd = [] 
         # for drone in droneList:
@@ -219,46 +228,38 @@ class Env:
         for id, drone in enumerate(droneList):
             img = responses[id]
             #try:
-            #bbox = self.dc.getPredBbox(img)
-            bbox = self.infer_model.get_yolo_boxes(img[:,:,:3])
-            #print("bbox:", bbox)
+            bboxes = self.dc.predict_yv4(img)
+
             # if no detection is found, where bbox is [0,0,0,0].
-            if bbox == []:
+            if bboxes == []:
                 exist_status = 'miss'
                 exist_reward[id] = exist_status
                 focus_status = 'none' 
                 focus_reward[id] = focus_status
-                size_status = 'none'
-                size_reward[id] = size_status
+                #size_status = 'none'
+                #size_reward[id] = size_status
             # if there is detection found in image.
             else:
+                bbox = bboxes[0] # get first detection only
                 exist_status = 'found'
                 exist_reward[id] = exist_status
 
                 focus_status = self.check_focus(bbox, img)
                 focus_reward[id] = focus_status
 
-                size_status = self.check_size(bbox, img)
-                size_reward[id] = size_status
+                #size_status = self.check_size(bbox, img)
+                #size_reward[id] = size_status
 
             # done if target is found within range and bounding box is large enough
-            if focus_status == "in" and size_status == "large":
+            if focus_status == "in":
                 success[id] = True
 
             #print(f'Drone[{id}] status: [{exist_status}], [{focus_status}], [{size_status}]')
 
         # Get area reward from drones
         area_reward = {}
-        max_area_reward = 0
         for id, drone in enumerate(droneList):
-            # if no success, assign normal area reward
-            if success[id] == False:
-                area_reward[id] = self.dc.testAreaCoverage(drone)
-            # if success, keep giving the max previous max reward to prevent drone explore other area
-            else:
-                area_reward[id] = max_area_reward
-            if area_reward[id] > max_area_reward:
-                max_area_reward = area_reward[id] 
+            area_reward[id] = self.dc.testAreaCoverage(drone)
 
         # decide if episode should be terminated
         done = False
@@ -277,7 +278,7 @@ class Env:
         done = any(has_collided) or any(out_range) or sum(success) == 2     
 
         # compute reward
-        reward = self.compute_reward(responses, exist_reward, focus_reward, size_reward, area_reward, spread_reward, dsensor_reward, success, done)
+        reward = self.compute_reward(responses, exist_reward, focus_reward, area_reward, spread_reward, dsensor_reward, success, done)
 
         # log info
         loginfo = []
@@ -289,16 +290,16 @@ class Env:
                 info['status'] = 'landed'
             elif has_collided[id]:
                 info['status'] = 'collision'
-            elif exist_reward[id] == 'miss':
-                info['status'] = 'miss'
-            elif exist_reward[id] == 'found':
-                info['status'] = 'found'
             elif any(dsensor_reward):
                 info['status'] = 'dsensor_close'     
             elif any(out_range):
                 info['status'] = 'dead'
             elif sum(success) == 2:
                 info['status'] = 'success'   
+            elif exist_reward[id] == 'miss':
+                info['status'] = 'miss'
+            elif exist_reward[id] == 'found':
+                info['status'] = 'found'
             else:
                 info['status'] = 'none'
             loginfo.append(info)
@@ -315,22 +316,22 @@ class Env:
 
     def check_focus(self, bbox, image):
         image_h, image_w, _ = image.shape
-        xmin, xmax, ymin, ymax = bbox.xmin, bbox.xmax, bbox.ymin, bbox.ymax
-        c_x = xmin + ((xmax - xmin) / 2)
-        c_y = ymin + ((ymax - ymin) / 2)
+        xmin, ymin, xmax, ymax = self.dc.convert_bbox(bbox[2][0], bbox[2][1], bbox[2][2], bbox[2][3])
+        c_x = bbox[2][0]
+        c_y = bbox[2][1]
 
         img_cen_x = image_w / 2
         img_cen_y = image_h / 2
 
         # Check if the center of the detection box is within the bounding box 'fbbox' 
         fbbox = {
-            'xmin': img_cen_x - (image_w * 0.2 / 2), # Xmin
-            'xmax': img_cen_x + (image_w * 0.2 / 2), # Xmax
-            'ymin': img_cen_y - (image_h * 0.2 / 2), # Ymin
-            'ymax': img_cen_y + (image_h * 0.2 / 2)  # Ymax
+            'xmin': int(img_cen_x - (image_w * focus_size / 2)), # Xmin
+            'xmax': int(img_cen_x + (image_w * focus_size / 2)), # Xmax
+            'ymin': int(img_cen_y - (image_h * focus_size / 2)), # Ymin
+            'ymax': int(img_cen_y + (image_h * focus_size / 2))  # Ymax
         }
 
-        if (c_x > fbbox['xmin'] and c_x < fbbox['xmax']) and (c_y > fbbox['ymin'] and c_y < fbbox['ymax']):
+        if (xmin > fbbox['xmin'] and xmax < fbbox['xmax']) and (ymin > fbbox['ymin'] and ymax < fbbox['ymax']):
             status = 'in'
         else:
             status = 'out'            
@@ -338,7 +339,7 @@ class Env:
 
     def check_size(self, bbox, image):
         image_h, image_w, _ = image.shape
-        xmin, xmax, ymin, ymax = bbox.xmin, bbox.xmax, bbox.ymin, bbox.ymax
+        xmin, ymin, xmax, ymax = self.dc.convert_bbox(bbox[2][0], bbox[2][1], bbox[2][2], bbox[2][3])
         y_delta = (ymax - ymin)/image_h
         x_delta = (xmax - xmin)/image_w
         # if the bbox size is larger than certain size, then it will be in 'large' status, otherwise in 'small' status.
@@ -348,13 +349,13 @@ class Env:
             status = 'small'
         return status
 
-    def compute_reward(self, responses, exist_reward, focus_reward, size_reward, area_reward, spread_reward, dsensor_reward, success, done):
+    def compute_reward(self, responses, exist_reward, focus_reward, area_reward, spread_reward, dsensor_reward, success, done):
         reward = [None] * len(droneList)
         for id, drone in enumerate(droneList):         
             img = responses[id]
             exist_status = exist_reward[id]
             focus_status = focus_reward[id]
-            size_status = size_reward[id]
+            #size_status = size_reward[id]
             area_rwd_pt = area_reward[id]
             
             # if distance sensor is too near any obstacle, give penalty
@@ -370,14 +371,10 @@ class Env:
                     reward[id] = config.reward['dead']
             elif exist_status == 'miss':
                 reward[id] = config.reward['miss']
-            elif exist_status == 'found' and focus_status == 'in' and size_status == 'large':
-                reward[id] = config.reward['large_in']
-            elif exist_status == 'found' and focus_status == 'out' and size_status == 'large':
-                reward[id] = config.reward['large_out']
-            elif exist_status == 'found' and focus_status == 'in' and size_status == 'small':
-                reward[id] = config.reward['small_in']
-            elif exist_status == 'found' and focus_status == 'out' and size_status == 'small':
-                reward[id] = config.reward['small_out']
+            elif exist_status == 'found' and focus_status == 'in':
+                reward[id] = config.reward['in']
+            elif exist_status == 'found' and focus_status == 'out':
+                reward[id] = config.reward['out']
             else:
                 reward[id] = config.reward['none']
 
