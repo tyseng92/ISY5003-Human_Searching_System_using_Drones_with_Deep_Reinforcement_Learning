@@ -46,12 +46,15 @@ class RDQNAgent(object):
         self.target_critic = self.build_model()
         self.critic_update = self.build_critic_optimizer()
         self.sess.run(tf.global_variables_initializer())
+        print("loading model: ", load_model)
         if load_model:
             self.load_model('./save_model/'+ agent_name)
-
+            print("Loaded model for agent.")
+        print("done loading")
         self.target_critic.set_weights(self.critic.get_weights())
 
         self.memory = deque(maxlen=self.memory_size)
+        print("Done initialize agent.")
 
     def build_model(self):
         # image process
@@ -425,6 +428,9 @@ if __name__ == '__main__':
                     print(f'Sub Loop: timestep: {timestep}, global_step: {global_step}')
                     timestep += 1
                     global_step += 1
+                    print("len(agent.memory): ", len(agent.memory))
+                    print("args.train_start: ", args.train_start)
+                    print("args.train_rate: ", args.train_rate)
                     if len(agent.memory) >= args.train_start and global_step >= args.train_rate:
                         print('Training model')
                         for _ in range(args.epoch):
@@ -465,10 +471,15 @@ if __name__ == '__main__':
                     score += float(reward)
                     if float(reward) > bestReward:
                         bestReward = float(reward)
+                    #print("reward: ", reward)
 
-                    print('ACTION: %s | %s' % (ACTION[action1], ACTION[policy1]), end='\r', flush=True)
-                    print('ACTION: %s | %s' % (ACTION[action2], ACTION[policy2]), end='\r', flush=True)
-                    print('ACTION: %s | %s' % (ACTION[action3], ACTION[policy3]), end='\r', flush=True)
+                    # print('ACTION: %s | %s' % (ACTION[action1], ACTION[policy1]), end='\r', flush=True)
+                    # print('ACTION: %s | %s' % (ACTION[action2], ACTION[policy2]), end='\r', flush=True)
+                    # print('ACTION: %s | %s' % (ACTION[action3], ACTION[policy3]), end='\r', flush=True)
+
+                    print('ACTION: %s | %s' % (ACTION[action1], ACTION[policy1]))
+                    print('ACTION: %s | %s' % (ACTION[action2], ACTION[policy2]))
+                    print('ACTION: %s | %s' % (ACTION[action3], ACTION[policy3]))
 
                     if args.verbose:
                         print('Step %d Action1 %s Action2 %s Action3 %s Reward %.2f Info1 %s Info2 %s Info3 %s:' % (timestep, real_action1, real_action2, real_action3, reward, info1, info2, info3))
@@ -477,6 +488,7 @@ if __name__ == '__main__':
 
                     if agent.epsilon > agent.epsilon_end:
                         agent.epsilon -= agent.epsilon_decay
+                    print("epsilon: ", agent.epsilon)
 
                 if bug:
                     continue

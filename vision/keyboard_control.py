@@ -83,7 +83,9 @@ class MoveDrone(object):
                 'x':self.check_position,
                 't':self.gps_check,
                 'y':self.stop,
-                'u':self.area
+                'u':self.area,
+                'i':self.reset_area,
+                'o':self.dist_sensor
                 }
         func=switcher.get(char,lambda :'Invalid Key!')
         return func()
@@ -216,6 +218,13 @@ class MoveDrone(object):
 
     def area(self):
         self.dc.testAreaCoverage(self.target_drone)
+
+    def reset_area(self):
+        self.dc.reset_area()
+
+    def dist_sensor(self):
+        dist = self.dc.getDistanceData("Distance1", self.target_drone).distance
+        print("Dist sensor: ", dist)
 
 def main(_argv):
     droneList = ['Drone0', 'Drone1', 'Drone2']

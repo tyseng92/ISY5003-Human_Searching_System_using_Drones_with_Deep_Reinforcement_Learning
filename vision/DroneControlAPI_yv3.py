@@ -14,6 +14,7 @@ import numpy as np
 import json
 #from inference_img import Yolov4
 from yolov3_inference import *
+from grid_coverage import covered_area, reset_grid
 
 class DroneControl:
     def __init__(self, droneList, drone_id=0, inference=True):
@@ -130,12 +131,12 @@ class DroneControl:
         else:
             print('Drone does not exists!')
     
-    def getDistanceData(self, lidar, drone):
+    def getDistanceData(self, dist_sensor, drone):
         """
         Method to get Distance data
         """
         if drone in self.droneList:
-            return self.client.getDistanceSensorData(lidar_name=lidar, vehicle_name=drone)
+            return self.client.getDistanceSensorData(distance_sensor_name=dist_sensor, vehicle_name=drone)
         else:
             print('Drone does not exists!')
 
@@ -312,8 +313,8 @@ class DroneControl:
     def changeDroneAlt(self, drone, altitude):
         ## getMultirotorState use the spawn coordinate rather than global coordinate from UE4, use offset to translate from UE4 to spawn coordinate (settings.json)
         pos = self.getMultirotorState(drone).kinematics_estimated.position
-        print("init_alt:", pos.z_val)
-        print("z_offset:", self.z_offset)
+        #print("init_alt:", pos.z_val)
+        #print("z_offset:", self.z_offset)
         z = altitude-self.z_offset
         print("z:",z)
         self.client.moveToPositionAsync(vehicle_name=drone,
@@ -332,6 +333,18 @@ class DroneControl:
         print("global_position_info:", pos)
         return pos
 
+    def getYawDeg(self, drone):
+        pos = self.client.simGetObjectPose(drone)
+        w = pos.orientation.w_val
+        x = pos.orientation.x_val
+        y = pos.orientation.y_val
+        z = pos.orientation.z_val
+        t3 = +2.0 * (w * z + x * y)
+        t4 = +1.0 - 2.0 * (y * y + z * z)
+        yaw = math.atan2(t3, t4)
+        #print("yaw: ", yaw*180/math.pi)
+        return yaw
+
     def getDronePosition(self, drone):
         pos = self.client.simGetObjectPose(drone).position
         return pos
@@ -348,4 +361,17 @@ class DroneControl:
         z = d["Vehicles"][drone]["Z"]
         print("Z_offset:", z)
         return float(z)
+    
+    def testAreaCoverage(self, drone):
+        #print("Drone: ", drone)
+        pos = self.client.simGetObjectPose(drone).position
+        yaw = self.getYawDeg(drone)
+        reward = covered_area(pos.x_val, pos.y_val, yaw)
+        print("area reward: ", reward)
+        return reward
+
+    def reset_area(self):
+        reset_grid()
+        print("Reset grid done.")
+
                     
