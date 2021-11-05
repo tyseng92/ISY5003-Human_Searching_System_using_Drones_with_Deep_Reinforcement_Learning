@@ -269,6 +269,8 @@ class DroneControl:
 
     def predict_yv4(self, img_rgb):
         bbox = self.yolo.predict(img_rgb)
+        if bbox == None:
+            return None
         print("bbox: ", bbox)
         if bbox != []:
             self.yolo.display(bbox, img_rgb)

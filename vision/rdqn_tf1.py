@@ -240,6 +240,7 @@ def transform_input(responses, img_height, img_width):
     d3norm = cv2.normalize(d3img, d3norm, 0, 255, cv2.NORM_MINMAX)
     dimg = np.array([d1norm, d2norm, d3norm])
     image = dimg.reshape(1, img_height, img_width, 3)
+    #cv2.imwrite('view.png', dimg)
     return image
 
 def interpret_action(action):
@@ -280,12 +281,15 @@ if __name__ == '__main__':
     parser.add_argument('--epoch',      type=int,   default=5)
     parser.add_argument('--batch_size', type=int,   default=32)
     parser.add_argument('--memory_size',type=int,   default=10000)
-    parser.add_argument('--train_start',type=int,   default=1000)
+    #parser.add_argument('--train_start',type=int,   default=1000)
+    parser.add_argument('--train_start',type=int,   default=100)
     parser.add_argument('--train_rate', type=int,   default=5)
-    parser.add_argument('--target_rate',type=int,   default=1000)
+    #parser.add_argument('--target_rate',type=int,   default=1000)
+    parser.add_argument('--target_rate',type=int,   default=200)
     parser.add_argument('--epsilon',    type=float, default=1)
     parser.add_argument('--epsilon_end',type=float, default=0.05)
-    parser.add_argument('--decay_step', type=int,   default=20000)
+    #parser.add_argument('--decay_step', type=int,   default=20000)
+    parser.add_argument('--decay_step', type=int,   default=2000)
 
     args = parser.parse_args()
 
@@ -504,7 +508,7 @@ if __name__ == '__main__':
                         % (episode, bestReward, timestep, score, avgQ))
             stats = [
                 episode, timestep, score, bestReward, \
-                loss, info[0]['level'], info[1]['level'], info[2]['level'], avgQ, info[0]['status'], info[1]['status'], info[2]['status']
+                loss, avgQ, info[0]['status'], info[1]['status'], info[2]['status']
             ]
             # log stats
             with open('save_stat/'+ agent_name + '_stat.csv', 'a', encoding='utf-8', newline='') as f:

@@ -42,12 +42,18 @@ class Yolov4():
         self.altNames = None
         # print(os.path.abspath(__file__))
         # print(os.getcwd())
+        # # Path to cfg
+        # configPath = "./darknet/build/darknet/x64/cfg/yolov4.cfg"
+        # # Path to weights
+        # weightPath = "./darknet/build/darknet/x64/yolov4.weights"
+        # # Path to meta data
+        # metaPath = "./darknet/build/darknet/x64/cfg/coco.data"
         # Path to cfg
-        configPath = "./darknet/build/darknet/x64/cfg/yolov4.cfg"
+        configPath = "./darknet/build/darknet/x64/cfg/target_yolov4.cfg"
         # Path to weights
-        weightPath = "./darknet/build/darknet/x64/yolov4.weights"
+        weightPath = "./darknet/build/darknet/x64/target.weights"
         # Path to meta data
-        metaPath = "./darknet/build/darknet/x64/cfg/coco.data"
+        metaPath = "./darknet/build/darknet/x64/cfg/target.data"
         # Checks whether file exists otherwise return ValueError
         if not os.path.exists(configPath):
             raise ValueError("Invalid config path `" +
@@ -116,7 +122,7 @@ class Yolov4():
             'keyboard': [33, 154, 135], 'cell phone': [206, 209, 108], 'microwave': [206, 209, 108], 'oven': [97, 246, 15],
             'toaster': [147, 140, 184], 'sink': [157, 58, 24], 'refrigerator': [117, 145, 137], 'book': [155, 129, 244],
             'clock': [53, 61, 6], 'vase': [145, 75, 152], 'scissors': [8, 140, 38], 'teddy bear': [37, 61, 220],
-            'hair drier': [129, 12, 229], 'toothbrush': [11, 126, 158]
+            'hair drier': [129, 12, 229], 'toothbrush': [11, 126, 158], 'target_a': [255, 0, 0], 'target_b': [0, 0, 255] 
         }
         return color_dict
 
@@ -268,13 +274,16 @@ class Yolov4():
         print(":::Video Write Completed")
 
     def predict(self, image):
+        print("image.size: ", image.size)
+        if image.size == 0:
+            return None
         image_h, image_w, _ = image.shape
         darknet_image = darknet.make_image(image_w, image_h, 3)
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         darknet.copy_image_from_bytes(
                 darknet_image, image_rgb.tobytes())
         detections = darknet.detect_image(
-                self.netMain, self.metaMain, darknet_image, thresh=0.25)
+                self.netMain, self.metaMain, darknet_image, thresh=0.70)
         return detections
     
     def display(self, detections, image):
@@ -294,7 +303,7 @@ class Yolov4():
         }
         cv2.rectangle(image_drawn, (fbbox["xmin"], fbbox["ymin"]),
                       (fbbox["xmax"], fbbox["ymax"]), (0, 255, 0), 1)
-                      
+
         image = Image.fromarray(image_drawn.astype(np.uint8))
         image.show()
 

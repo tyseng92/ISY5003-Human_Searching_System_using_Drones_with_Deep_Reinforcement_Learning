@@ -7,7 +7,7 @@ cell_width = 0.5  # in meter
 # projected_dist is the xy plane distance between drone and the center of covered area 
 proj_dist = 11  # in meter
 covered_length = 8 # in meter
-pad_size = 20 # in grid cells
+pad_size = 40 # in grid cells
 #covered_reward_pt = 0.01
 cell_value = 1
 covered_reward_pt = config.reward['area']
@@ -64,7 +64,7 @@ def covered_area(pos_x, pos_y, yaw):
     #add_data(i1, j1, 1)
 
     i2, j2 = discretize(pos)
-    add_data(i2, j2, 0)
+    #add_data(i2, j2, 0)
 
     # spread the grid for the covered area
     spread_size = int((covered_length/2)// cell_width)

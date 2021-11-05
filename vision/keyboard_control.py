@@ -5,6 +5,7 @@ from pynput import keyboard
 from DroneControlAPI_yv4 import DroneControl
 from absl import app, flags, logging
 from absl.flags import FLAGS
+from geopy import distance
 
 class MoveDrone(object):
     def __init__(self, drone_list, drone_id=0, inference=True):
@@ -24,6 +25,10 @@ class MoveDrone(object):
         self.init_pos = [0,0,self.altitude]
         # check position
         self.dc.check_pos_from_player_start(self.target_drone)
+
+        # check gps origin
+        gps = self.dc.getGpsData(self.target_drone)
+        self.gps_origin = (gps.latitude, gps.longitude)
 
         # change cams angle
         self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="0")
@@ -82,6 +87,7 @@ class MoveDrone(object):
                 '5':self.change_alt_bottom,
                 'x':self.check_position,
                 't':self.gps_check,
+                'm':self.imu_check,
                 'y':self.stop,
                 'u':self.area,
                 'i':self.reset_area,
@@ -214,7 +220,14 @@ class MoveDrone(object):
 
     def gps_check(self):
         gps = self.dc.getGpsData(self.target_drone)
-        print("gps:", gps)
+        gps_drone = (gps.latitude, gps.longitude)
+        print("gps:", gps_drone)
+        gps_dist = distance.distance(self.gps_origin, gps_drone).m
+        print("gps_dist: ", gps_dist)
+
+    def imu_check(self):
+        imu = self.dc.getImuData("Imu1", self.target_drone)
+        print("imu: ", imu)
 
     def area(self):
         self.dc.testAreaCoverage(self.target_drone)

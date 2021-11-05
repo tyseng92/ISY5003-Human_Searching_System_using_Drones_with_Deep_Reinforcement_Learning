@@ -27,6 +27,11 @@ focus_size = 0.7
 floorZ = 0 
 min_height = -7 
 max_height = -9
+min_x = -20
+max_x = 20
+
+# number of target to success
+target_num = 1
 
 goals = [7, 17, 27.5, 45, goalY]
 speed_limit = 0.2
@@ -49,6 +54,12 @@ class Env:
         self.init_pos = [0,0,self.altitude]
         self.camera_angle = [-50, 0, 0]
         self.level = 0
+
+        # initialize gps origin for distance calculation
+        self.gps_origin = []
+        for drone in droneList:
+            gps = self.dc.getGpsData(drone)
+            self.gps_origin.append((gps.latitude, gps.longitude))
         #self.responses = []
         #self.drone_pos = []
 
@@ -80,14 +91,22 @@ class Env:
             print("captured img")
             #responses.append(self.dc.getImage(drone))
 
+        # drone_dist = []
+        # for drone in droneList:
+        #     pos = self.dc.getDronePosition(drone)
+        #     # distance from origin to drone
+        #     dist = np.linalg.norm([pos.x_val, pos.y_val])
+        #     drone_dist.append(dist)
+        #     print("Drone distance from origin: ", dist)
+
         drone_dist = []
-        for drone in droneList:
-            pos = self.dc.getDronePosition(drone)
-            # distance from origin to drone
-            dist = np.linalg.norm([pos.x_val, pos.y_val])
+        for id, drone in enumerate(droneList):
+            gps = self.dc.getGpsData(drone)
+            gps_drone = (gps.latitude, gps.longitude)
+            dist = distance.distance(self.gps_origin[id], gps_drone).m
             drone_dist.append(dist)
             print("Drone distance from origin: ", dist)
-        
+
         # quad_spd = []
         # for drone in droneList:
         #     quad_vel = self.dc.getMultirotorState(drone).kinematics_estimated.linear_velocity
@@ -173,7 +192,12 @@ class Env:
         # All of the drones take image
         responses = []
         for drone in droneList:
-            img = self.dc.captureImgNumpy(drone, cam = 0)
+            while True:
+                img = self.dc.captureImgNumpy(drone, cam = 0)
+                if img.size != 0:
+                    print("ImageCaptured!")
+                    break
+                print("Img is None.")
             responses.append(img)
             #responses.append(self.dc.getImage(drone))
 
@@ -181,11 +205,19 @@ class Env:
         for drone in droneList:
             drone_pos.append(self.dc.getDronePosition(drone)) 
 
-        drone_dist = [] 
-        for drone in droneList:
-            pos = self.dc.getDronePosition(drone)
-            # distance from origin to drone
-            dist = np.linalg.norm([pos.x_val, pos.y_val])
+        # drone_dist = [] 
+        # for drone in droneList:
+        #     pos = self.dc.getDronePosition(drone)
+        #     # distance from origin to drone
+        #     dist = np.linalg.norm([pos.x_val, pos.y_val])
+        #     drone_dist.append(dist)
+        #     print("Drone distance from origin: ", dist)
+
+        drone_dist = []
+        for id, drone in enumerate(droneList):
+            gps = self.dc.getGpsData(drone)
+            gps_drone = (gps.latitude, gps.longitude)
+            dist = distance.distance(self.gps_origin[id], gps_drone).m
             drone_dist.append(dist)
             print("Drone distance from origin: ", dist)
 
@@ -223,15 +255,15 @@ class Env:
         # Get image reward from drones
         exist_reward = {}
         focus_reward = {}
-        size_reward = {}
+        #size_reward = {}
         success = [False, False, False]
         for id, drone in enumerate(droneList):
             img = responses[id]
             #try:
             bboxes = self.dc.predict_yv4(img)
-
+                
             # if no detection is found, where bbox is [0,0,0,0].
-            if bboxes == []:
+            if bboxes == [] or bboxes == None:
                 exist_status = 'miss'
                 exist_reward[id] = exist_status
                 focus_status = 'none' 
@@ -250,11 +282,12 @@ class Env:
                 #size_status = self.check_size(bbox, img)
                 #size_reward[id] = size_status
 
-            # done if target is found within range and bounding box is large enough
+            # done if target is found within range 
             if focus_status == "in":
                 success[id] = True
 
             #print(f'Drone[{id}] status: [{exist_status}], [{focus_status}], [{size_status}]')
+        print("Success: ", success)
 
         # Get area reward from drones
         area_reward = {}
@@ -268,14 +301,14 @@ class Env:
         out_range = [False, False, False]
         for id, drone in enumerate(droneList):
             print("drone_pos[id].z_val: ", drone_pos[id].z_val)
-            if drone_pos[id].z_val > min_height or drone_pos[id].z_val < max_height: 
+            if drone_pos[id].z_val > min_height or drone_pos[id].z_val < max_height or drone_pos[id].x_val > max_x or drone_pos[id].x_val < min_x: 
                 out_range[id] = True
 
         print("has_collided: ", has_collided)
         print("out_range: ", out_range)
 
         # done if 2 targets are found
-        done = any(has_collided) or any(out_range) or sum(success) == 2     
+        done = any(has_collided) or any(out_range) or sum(success) == target_num    
 
         # compute reward
         reward = self.compute_reward(responses, exist_reward, focus_reward, area_reward, spread_reward, dsensor_reward, success, done)
@@ -294,12 +327,12 @@ class Env:
                 info['status'] = 'dsensor_close'     
             elif any(out_range):
                 info['status'] = 'dead'
-            elif sum(success) == 2:
+            elif success[id] == True:
                 info['status'] = 'success'   
             elif exist_reward[id] == 'miss':
                 info['status'] = 'miss'
             elif exist_reward[id] == 'found':
-                info['status'] = 'found'
+                info['status'] = 'found_out'
             else:
                 info['status'] = 'none'
             loginfo.append(info)
@@ -365,7 +398,7 @@ class Env:
 
             # Assign reward value based on status
             if done:
-                if sum(success) == 2:
+                if sum(success) == target_num:
                     reward[id] = config.reward['success']
                 else:
                     reward[id] = config.reward['dead']
