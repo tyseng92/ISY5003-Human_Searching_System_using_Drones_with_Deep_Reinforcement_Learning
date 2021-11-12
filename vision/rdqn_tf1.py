@@ -21,6 +21,8 @@ from airsim_env_tf1 import Env, ACTION
 
 np.set_printoptions(suppress=True, precision=4)
 agent_name = 'rdqn'
+num_drone = 3
+num_cam = 4
 
 class RDQNAgent(object):
 
@@ -229,17 +231,15 @@ Environment interaction
 '''
 
 def transform_input(responses, img_height, img_width):
-    d1img = np.array(cv2.cvtColor(responses[0][:,:,:3], cv2.COLOR_BGR2GRAY))
-    d2img = np.array(cv2.cvtColor(responses[1][:,:,:3], cv2.COLOR_BGR2GRAY))
-    d3img = np.array(cv2.cvtColor(responses[2][:,:,:3], cv2.COLOR_BGR2GRAY))
-    d1norm = np.zeros((img_height, img_width))
-    d2norm = np.zeros((img_height, img_width))
-    d3norm = np.zeros((img_height, img_width))
-    d1norm = cv2.normalize(d1img, d1norm, 0, 255, cv2.NORM_MINMAX)
-    d2norm = cv2.normalize(d2img, d2norm, 0, 255, cv2.NORM_MINMAX)
-    d3norm = cv2.normalize(d3img, d3norm, 0, 255, cv2.NORM_MINMAX)
-    dimg = np.array([d1norm, d2norm, d3norm])
-    image = dimg.reshape(1, img_height, img_width, 3)
+    dimg_list = []
+    for img in responses:
+        dimg = np.array(cv2.cvtColor(img[:,:,:3], cv2.COLOR_BGR2GRAY))
+        dnorm = np.zeros((img_height, img_width))
+        dnorm = cv2.normalize(dimg, dnorm, 0, 255, cv2.NORM_MINMAX)
+        dimg_list.append(dnorm)
+    dimg_all = np.array(dimg_list)
+    image = dimg_all.reshape(1, img_height, img_width, len(responses))
+    print("transform responses len: ", len(responses))
     #cv2.imwrite('view.png', dimg)
     return image
 
@@ -301,7 +301,8 @@ if __name__ == '__main__':
         os.makedirs('save_model')
 
     # Make RL agent
-    state_size = [args.seqsize, args.img_height, args.img_width, 3]
+    # state_size consists of [args.seqsize] images sets per history, where in every set, the number of images is [num_drone] times [num_cam].  
+    state_size = [args.seqsize, args.img_height, args.img_width, num_drone*num_cam]
     action_size = 7
     agent = RDQNAgent(
         state_size=state_size,
@@ -425,6 +426,7 @@ if __name__ == '__main__':
             try:
                 image = transform_input(image, args.img_height, args.img_width)
             except:
+                print("transform_image error..")
                 continue
             history = np.stack([image] * args.seqsize, axis=1)
             vel = vel.reshape(1, -1)

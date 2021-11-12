@@ -8,18 +8,21 @@ from absl.flags import FLAGS
 from geopy import distance
 
 class MoveDrone(object):
-    def __init__(self, drone_list, drone_id=0, inference=True):
+    def __init__(self, drone_list, drone_id=0, inference=True, multicam=False):
         self.dc = DroneControl(drone_list, drone_id=drone_id, inference=inference)
         self.inference = inference
+        self.multicam = multicam
         self.dc.takeOff()
         self.target_drone = drone_list[drone_id]
         self.spd = 1
         self.angle_spd = 10
         #self.move_time = 0.1
         self.move_time = 2
-        # [[front_right cam orientation], [front_left cam orientation] ,[back_center cam orientation]]
-        #self.camera_angle = [[-50, 0, 60], [-50, 0, -60], [-50, 0, 0]] 
-        self.camera_angle = [[-50, 0, 0]]
+        if self.multicam:
+            # [[front_right cam orientation], [front_left cam orientation] ,[back_center cam orientation] ,[front_center cam orientation]]
+            self.camera_angle = [[-50, 0, 90], [-50, 0, -90], [-50, 0, 0], [-50, 0, 0]] 
+        else:
+            self.camera_angle = [[-50, 0, 0]]
         # remember change altitude to negative as airsim use NED frame, where negative means upward.
         self.altitude = -2.5
         self.init_pos = [0,0,self.altitude]
@@ -31,10 +34,11 @@ class MoveDrone(object):
         self.gps_origin = (gps.latitude, gps.longitude)
 
         # change cams angle
-        self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="0")
-        # self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="1")
-        # self.dc.setCameraAngle(self.camera_angle[1], self.target_drone, cam="2")
-        # self.dc.setCameraAngle(self.camera_angle[2], self.target_drone, cam="4")
+        #self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="0")
+        self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="1")
+        self.dc.setCameraAngle(self.camera_angle[1], self.target_drone, cam="2")
+        self.dc.setCameraAngle(self.camera_angle[2], self.target_drone, cam="4")
+        self.dc.setCameraAngle(self.camera_angle[3], self.target_drone, cam="0")
 
         # initialize position
         self.dc.moveDroneToPos(self.target_drone, self.init_pos)
@@ -131,48 +135,104 @@ class MoveDrone(object):
         self.stabilize()
 
     def cam_up(self):
-        #self.camera_angle[0][0] += 5
-        #self.camera_angle[1][0] += 5
-        #self.camera_angle[2][0] += 5
-        #self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="1")
-        #self.dc.setCameraAngle(self.camera_angle[1], self.target_drone, cam="2")
-        #self.dc.setCameraAngle(self.camera_angle[2], self.target_drone, cam="4")
-        self.camera_angle[0][0] += 5
-        self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="0")
-        print("camera_angle:", self.camera_angle[0][0])
+        if self.multicam:
+            self.cam_up_multi()
+        else:
+            self.cam_up_single()
 
     def cam_down(self):
-        #self.camera_angle[0][0] -= 5
-        #self.camera_angle[1][0] -= 5
-        #self.camera_angle[2][0] -= 5
-        #self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="1")
-        #self.dc.setCameraAngle(self.camera_angle[1], self.target_drone, cam="2")
-        #self.dc.setCameraAngle(self.camera_angle[2], self.target_drone, cam="4")
+        if self.multicam:
+            self.cam_down_multi()
+        else:
+            self.cam_down_single()
+
+    def cam_up_single(self):
+        self.camera_angle[0][0] +=5
+        self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="0")
+        print("camera_angle_up:", self.camera_angle[0][0])
+
+    def cam_down_single(self):
         self.camera_angle[0][0] -= 5
         self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="0")
-        print("camera_angle:", self.camera_angle[0][0])
+        print("camera_angle_down:", self.camera_angle[0][0])
+
+    def cam_up_multi(self):
+        self.camera_angle[0][0] +=5
+        self.camera_angle[1][0] += 5
+        self.camera_angle[2][0] += 5
+        self.camera_angle[3][0] += 5
+        self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="1")
+        self.dc.setCameraAngle(self.camera_angle[1], self.target_drone, cam="2")
+        self.dc.setCameraAngle(self.camera_angle[2], self.target_drone, cam="4")
+        self.dc.setCameraAngle(self.camera_angle[3], self.target_drone, cam="0")
+        print("camera_angle_up_0:", self.camera_angle[0][0])
+        print("camera_angle_up_1:", self.camera_angle[1][0])
+        print("camera_angle_up_2:", self.camera_angle[2][0])
+        print("camera_angle_up_3:", self.camera_angle[3][0])
+
+    def cam_down_multi(self):
+        self.camera_angle[0][0] -= 5
+        self.camera_angle[1][0] -= 5
+        self.camera_angle[2][0] -= 5
+        self.camera_angle[3][0] -= 5
+        self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="1")
+        self.dc.setCameraAngle(self.camera_angle[1], self.target_drone, cam="2")
+        self.dc.setCameraAngle(self.camera_angle[2], self.target_drone, cam="4")
+        self.dc.setCameraAngle(self.camera_angle[3], self.target_drone, cam="0")
+        print("camera_angle_down_0:", self.camera_angle[0][0])
+        print("camera_angle_down_1:", self.camera_angle[1][0])
+        print("camera_angle_down_2:", self.camera_angle[2][0])
+        print("camera_angle_down_3:", self.camera_angle[3][0])
 
     def cam_left(self):
-        # self.camera_angle[0][2] -=5
-        # self.camera_angle[1][2] -= 5
-        # self.camera_angle[2][2] -= 5
-        # self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="1")
-        # self.dc.setCameraAngle(self.camera_angle[1], self.target_drone, cam="2")
-        # self.dc.setCameraAngle(self.camera_angle[2], self.target_drone, cam="4")
-        self.camera_angle[0][2] -=5
-        self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="0")
-        print("camera_angle:", self.camera_angle[0][2])
+        if self.multicam:
+            self.cam_left_multi()
+        else:
+            self.cam_left_single()
 
     def cam_right(self):
-        # self.camera_angle[0][2] += 5
-        # self.camera_angle[1][2] += 5
-        # self.camera_angle[2][2] += 5
-        # self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="1")
-        # self.dc.setCameraAngle(self.camera_angle[1], self.target_drone, cam="2")
-        # self.dc.setCameraAngle(self.camera_angle[2], self.target_drone, cam="4")
+        if self.multicam:
+            self.cam_right_multi()
+        else:
+            self.cam_right_single()
+
+    def cam_left_single(self):
+        self.camera_angle[0][2] -=5
+        self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="0")
+        print("camera_angle_left:", self.camera_angle[0][2])
+
+    def cam_right_single(self):
         self.camera_angle[0][2] += 5
         self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="0")
-        print("camera_angle:", self.camera_angle[0][2])
+        print("camera_angle_right:", self.camera_angle[0][2])
+
+    def cam_left_multi(self):
+        self.camera_angle[0][2] -= 5
+        self.camera_angle[1][2] -= 5
+        self.camera_angle[2][2] -= 5
+        self.camera_angle[3][2] -= 5
+        self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="1")
+        self.dc.setCameraAngle(self.camera_angle[1], self.target_drone, cam="2")
+        self.dc.setCameraAngle(self.camera_angle[2], self.target_drone, cam="4")
+        self.dc.setCameraAngle(self.camera_angle[3], self.target_drone, cam="0")
+        print("camera_angle_left_0:", self.camera_angle[0][2])
+        print("camera_angle_left_1:", self.camera_angle[1][2])
+        print("camera_angle_left_2:", self.camera_angle[2][2])
+        print("camera_angle_left_3:", self.camera_angle[3][2])
+
+    def cam_right_multi(self):
+        self.camera_angle[0][2] += 5
+        self.camera_angle[1][2] += 5
+        self.camera_angle[2][2] += 5
+        self.camera_angle[3][2] += 5
+        self.dc.setCameraAngle(self.camera_angle[0], self.target_drone, cam="1")
+        self.dc.setCameraAngle(self.camera_angle[1], self.target_drone, cam="2")
+        self.dc.setCameraAngle(self.camera_angle[2], self.target_drone, cam="4")
+        self.dc.setCameraAngle(self.camera_angle[3], self.target_drone, cam="0")
+        print("camera_angle_right_0:", self.camera_angle[0][2])
+        print("camera_angle_right_1:", self.camera_angle[1][2])
+        print("camera_angle_right_2:", self.camera_angle[2][2])
+        print("camera_angle_right_3:", self.camera_angle[3][2])
 
     def change_alt_top(self):
         # remember change altitude to negative as airsim use NED frame, where negative means upward.
@@ -210,7 +270,7 @@ class MoveDrone(object):
         if self.inference:
             self.stop()
             # change cam id to 1, 2, or 4
-            self.dc.inference_run_yv4(self.target_drone, cam = 0)
+            self.dc.inference_run_yv4(self.target_drone, cam = 1)
 
     def stop(self):
         #print(self.target_drone)
@@ -246,7 +306,7 @@ def main(_argv):
     droneList = ['Drone0', 'Drone1', 'Drone2']
     #md = MoveDrone(droneList, drone_id=0)
     # change drone with drone_id: 0, 1, or 2, set inference to 'True' to use inference function
-    md = MoveDrone(droneList, drone_id=0, inference=True)
+    md = MoveDrone(droneList, drone_id=0, inference=True, multicam=True)
 
 if __name__ == '__main__':
     try:

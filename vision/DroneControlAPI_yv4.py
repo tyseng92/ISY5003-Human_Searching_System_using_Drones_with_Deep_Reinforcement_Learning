@@ -264,15 +264,14 @@ class DroneControl:
             img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8) # get numpy array
             img_rgb = img1d.reshape(response.height, response.width, 3)
             bbox = self.yolo.predict(img_rgb)
-            print("bbox: ", bbox)
             self.yolo.display(bbox, img_rgb)
 
     def predict_yv4(self, img_rgb):
         bbox = self.yolo.predict(img_rgb)
         if bbox == None:
             return None
-        print("bbox: ", bbox)
         if bbox != []:
+            print("bbox: ", bbox)
             self.yolo.display(bbox, img_rgb)
         return bbox
 
@@ -387,11 +386,12 @@ class DroneControl:
         print("Z_offset:", z)
         return float(z)
     
-    def testAreaCoverage(self, drone):
+    def testAreaCoverage(self, drone, camList, cam_shifted_angle):
         #print("Drone: ", drone)
         pos = self.client.simGetObjectPose(drone).position
         yaw = self.getYawDeg(drone)
-        reward = covered_area(pos.x_val, pos.y_val, yaw)
+
+        reward = covered_area(pos.x_val, pos.y_val, yaw, camList, cam_shifted_angle)
         print("area reward: ", reward)
         return reward
 

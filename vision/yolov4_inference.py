@@ -274,7 +274,7 @@ class Yolov4():
         print(":::Video Write Completed")
 
     def predict(self, image):
-        print("image.size: ", image.size)
+        #print("image.size: ", image.size)
         if image.size == 0:
             return None
         image_h, image_w, _ = image.shape

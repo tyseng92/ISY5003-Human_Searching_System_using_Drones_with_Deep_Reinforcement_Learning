@@ -1,15 +1,11 @@
-import time
-import numpy as np
 import airsim
+import numpy as np
 import config
 from geopy import distance
 from DroneControlAPI_yv4 import DroneControl
-from keyboard_control import MoveDrone
-#from yolov3_inference import *
 
-import math
+import time
 import itertools
-from pathlib import Path
 
 clockspeed = 1
 timeslice = 0.5 / clockspeed
@@ -36,39 +32,92 @@ target_num = 1
 goals = [7, 17, 27.5, 45, goalY]
 speed_limit = 0.2
 ACTION = ['00', '+x', '+y', '+rz', '-x', '-y', '-rz']
-#ACTION = ['00', '+x', '+y', '-x', '-y']
 
 droneList = ['Drone0', 'Drone1', 'Drone2']
-#base_dir = Path('..')
 yolo_weights = 'data/drone.h5'
 
 class Env:
     def __init__(self):
         # connect to the AirSim simulator
         self.dc = DroneControl(droneList)
-        # Load the inference model
-        #self.infer_model = YoloPredictor(yolo_weights)
+
         self.action_size = 3
         self.altitude = -8
         #self.altitude = -2.5
         self.init_pos = [0,0,self.altitude]
-        self.camera_angle = [-50, 0, 0]
-        self.level = 0
+        self.camList = [0,1,2,4]
+        #self.camera_angle = [-50, 0, 0]
+        self.camera_angle = [[-50, 0, 90], [-50, 0, -90], [-50, 0, 0], [-50, 0, 0]] 
 
         # initialize gps origin for distance calculation
         self.gps_origin = []
         for drone in droneList:
             gps = self.dc.getGpsData(drone)
             self.gps_origin.append((gps.latitude, gps.longitude))
-        #self.responses = []
-        #self.drone_pos = []
+
+    def capture_state_image(self):
+        # all of the drones take image.
+        responses = []
+        for drone in droneList:
+            response = []
+            for camID in self.camList:
+                while True:
+                    #self.dc.getImage(drone)
+                    img = self.dc.captureImgNumpy(drone, cam = camID)
+                    if img.size != 0:
+                        #print("ImageCaptured!")
+                        break
+                    print("Img is None.")
+                response.append(img)
+            responses.append(response)
+        return responses
+
+    def capture_state_dist_gps(self):
+        # get drone distance from origin using GPS position.
+        drone_dist = []
+        for id, drone in enumerate(droneList):
+            gps = self.dc.getGpsData(drone)
+            gps_drone = (gps.latitude, gps.longitude)
+            dist = distance.distance(self.gps_origin[id], gps_drone).m
+            drone_dist.append(dist)
+            print("Drone distance from origin: ", dist)
+        return drone_dist
+
+    def capture_state_dist_imu(self):
+        # Alternative way of getting drone distance from origin using IMU position.
+        drone_dist = []
+        for drone in droneList:
+            pos = self.dc.getDronePosition(drone)
+            # distance from origin to drone
+            dist = np.linalg.norm([pos.x_val, pos.y_val])
+            drone_dist.append(dist)
+            print("Drone distance from origin: ", dist)
+        return drone_dist
+
+    def capture_state_speed(self):
+        quad_spd = []
+        for drone in droneList:
+            quad_vel = self.dc.getMultirotorState(drone).kinematics_estimated.linear_velocity
+            quad_vel_vec = [quad_vel.x_val, quad_vel.y_val, quad_vel.z_val]
+            quad_spd_val = np.linalg.norm(quad_vel_vec)
+            quad_spd.append(quad_spd_val)
+            print("Drone speed: ", quad_spd_val)
+        return quad_spd
+
+    def nested_list_to_list(self, responses):
+        # convert responses from nested list into list. Used all of the images captured by drones.
+        obs_responses = []
+        for imglist in responses:
+            for img in imglist:
+                obs_responses.append(img) 
+        print("obs_responses len: ", len(obs_responses)) 
+        return obs_responses
 
     def reset(self):
         '''
         Method to reset AirSim env to starting position
         '''
         print("RESET")
-        self.level = 0
         self.dc.resetAndRearm_Drones()
         self.dc.reset_area()
 
@@ -80,44 +129,23 @@ class Env:
             #self.dc.moveDrone(drone, [0,0,0], 0.1 * timeslice)
             self.dc.moveDroneToPos(drone, self.init_pos)
             self.dc.hoverAsync(drone).join()
-            self.camera_angle = [-50, 0, 0]
-            self.dc.setCameraAngle(self.camera_angle, drone, cam="0")
+            #self.camera_angle = [-50, 0, 0]
+            self.camera_angle = [[-50, 0, 90], [-50, 0, -90], [-50, 0, 0], [-50, 0, 0]] 
+            self.dc.setCameraAngle(self.camera_angle[0], drone, cam="1")
+            self.dc.setCameraAngle(self.camera_angle[1], drone, cam="2")
+            self.dc.setCameraAngle(self.camera_angle[2], drone, cam="4")
+            self.dc.setCameraAngle(self.camera_angle[3], drone, cam="0")
 
-        # capture image to numpy by drone
-        responses = []
-        for drone in droneList:
-            img = self.dc.captureImgNumpy(drone, cam = 0)
-            responses.append(img)
-            print("captured img")
-            #responses.append(self.dc.getImage(drone))
+        # Initial image capturing by drones
+        responses = self.capture_state_image()
 
-        # drone_dist = []
-        # for drone in droneList:
-        #     pos = self.dc.getDronePosition(drone)
-        #     # distance from origin to drone
-        #     dist = np.linalg.norm([pos.x_val, pos.y_val])
-        #     drone_dist.append(dist)
-        #     print("Drone distance from origin: ", dist)
+        # get drone distance from origin using GPS position.
+        drone_dist = self.capture_state_dist_gps()
 
-        drone_dist = []
-        for id, drone in enumerate(droneList):
-            gps = self.dc.getGpsData(drone)
-            gps_drone = (gps.latitude, gps.longitude)
-            dist = distance.distance(self.gps_origin[id], gps_drone).m
-            drone_dist.append(dist)
-            print("Drone distance from origin: ", dist)
+        # convert responses from nested list into list. Used all of the images captured by drones.
+        obs_responses = self.nested_list_to_list(responses)  
 
-        # quad_spd = []
-        # for drone in droneList:
-        #     quad_vel = self.dc.getMultirotorState(drone).kinematics_estimated.linear_velocity
-        #     quad_vel_vec = [quad_vel.x_val, quad_vel.y_val, quad_vel.z_val]
-        #     quad_spd_val = np.linalg.norm(quad_vel_vec)
-        #     quad_spd.append(quad_spd_val)
-        #     print("Drone speed: ", quad_spd_val)
-
-        #print("quad_vel_val:", quad_vel_val)
-        #print("type:", type(quad_vel_val))
-        observation = [responses, drone_dist]
+        observation = [obs_responses, drone_dist]
         return observation
 
     def step(self, quad_offset_list):
@@ -129,6 +157,7 @@ class Env:
         self.dc.simPause(False)
         
         # Move the drones
+        cam_shifted = [0,0,0]
         for id, drone in enumerate(droneList):
             self.dc.changeDroneAlt(drone, -8)
             # front or back
@@ -144,8 +173,19 @@ class Env:
                 #self.dc.changeDroneAlt(drone, -8)
             # cam left or right
             elif quad_offset[id][3] == 3 or quad_offset[id][3] == 6:
-                self.camera_angle[2] += quad_offset[id][2]*angle_spd
-                self.dc.setCameraAngle(self.camera_angle, drone)
+                #self.camera_angle[2] += quad_offset[id][2]*angle_spd
+                #self.dc.setCameraAngle(self.camera_angle, drone)
+                self.camera_angle[0][2] += quad_offset[id][2]*angle_spd
+                self.camera_angle[1][2] += quad_offset[id][2]*angle_spd
+                self.camera_angle[2][2] += quad_offset[id][2]*angle_spd
+                self.camera_angle[3][2] += quad_offset[id][2]*angle_spd
+                self.dc.setCameraAngle(self.camera_angle[0], drone, cam="1")
+                self.dc.setCameraAngle(self.camera_angle[1], drone, cam="2")
+                self.dc.setCameraAngle(self.camera_angle[2], drone, cam="4")
+                self.dc.setCameraAngle(self.camera_angle[3], drone, cam="0")
+
+                cam_shifted[id] = quad_offset[id][2]*angle_spd
+
             # top and bottom
             # elif quad_offset[id][3] == 3 or quad_offset[id][3] == 6:
             #     self.dc.moveDroneBySelfFrame(drone, [0,0,quad_offset[id][2]], 2* timeslice)
@@ -154,6 +194,11 @@ class Env:
             else:
                 pass 
 
+            # print("camera_angle_action:", self.camera_angle[0][2])
+            # print("camera_angle_action:", self.camera_angle[1][2])
+            # print("camera_angle_action:", self.camera_angle[2][2])
+            # print("camera_angle_action:", self.camera_angle[3][2])
+            
             #self.dc.moveDrone(drone, [quad_offset[id][0], quad_offset[id][1], quad_offset[id][2]], 2* timeslice)
 
         # Get follower drones position and linear velocity        
@@ -189,37 +234,16 @@ class Env:
         self.dc.simPause(True)
         #time.sleep(1)
 
-        # All of the drones take image
-        responses = []
-        for drone in droneList:
-            while True:
-                img = self.dc.captureImgNumpy(drone, cam = 0)
-                if img.size != 0:
-                    print("ImageCaptured!")
-                    break
-                print("Img is None.")
-            responses.append(img)
-            #responses.append(self.dc.getImage(drone))
+        # all of the drones take image
+        responses = self.capture_state_image()
 
+        # get drone distance from origin using GPS position.
+        drone_dist = self.capture_state_dist_gps()
+
+        # get drone position from IMU 
         drone_pos = []
         for drone in droneList:
             drone_pos.append(self.dc.getDronePosition(drone)) 
-
-        # drone_dist = [] 
-        # for drone in droneList:
-        #     pos = self.dc.getDronePosition(drone)
-        #     # distance from origin to drone
-        #     dist = np.linalg.norm([pos.x_val, pos.y_val])
-        #     drone_dist.append(dist)
-        #     print("Drone distance from origin: ", dist)
-
-        drone_dist = []
-        for id, drone in enumerate(droneList):
-            gps = self.dc.getGpsData(drone)
-            gps_drone = (gps.latitude, gps.longitude)
-            dist = distance.distance(self.gps_origin[id], gps_drone).m
-            drone_dist.append(dist)
-            print("Drone distance from origin: ", dist)
 
         # calculate the total gap distance between drones
         pos_comb = itertools.combinations(drone_pos, 2)
@@ -258,33 +282,36 @@ class Env:
         #size_reward = {}
         success = [False, False, False]
         for id, drone in enumerate(droneList):
-            img = responses[id]
-            #try:
-            bboxes = self.dc.predict_yv4(img)
-                
-            # if no detection is found, where bbox is [0,0,0,0].
-            if bboxes == [] or bboxes == None:
-                exist_status = 'miss'
-                exist_reward[id] = exist_status
-                focus_status = 'none' 
-                focus_reward[id] = focus_status
-                #size_status = 'none'
-                #size_reward[id] = size_status
-            # if there is detection found in image.
-            else:
-                bbox = bboxes[0] # get first detection only
-                exist_status = 'found'
-                exist_reward[id] = exist_status
+            for camid in range(len(self.camList)):
+                img = responses[id][camid]
+                #try:
+                bboxes = self.dc.predict_yv4(img)
+                    
+                # if no detection is found, where bbox is [0,0,0,0].
+                if bboxes == [] or bboxes == None:
+                    exist_status = 'miss'
+                    exist_reward[id] = exist_status
+                    focus_status = 'none' 
+                    focus_reward[id] = focus_status
+                    #size_status = 'none'
+                    #size_reward[id] = size_status
+                # if there is detection found in image.
+                else:
+                    bbox = bboxes[0] # get first detection only
+                    exist_status = 'found'
+                    exist_reward[id] = exist_status
 
-                focus_status = self.check_focus(bbox, img)
-                focus_reward[id] = focus_status
+                    focus_status = self.check_focus(bbox, img)
+                    focus_reward[id] = focus_status
 
-                #size_status = self.check_size(bbox, img)
-                #size_reward[id] = size_status
+                    #size_status = self.check_size(bbox, img)
+                    #size_reward[id] = size_status
 
-            # done if target is found within range 
-            if focus_status == "in":
-                success[id] = True
+                    # done if target is found within range 
+                    if focus_status == "in":
+                        success[id] = True
+                    # need to break out once found target in one of the cam for every drone
+                    break
 
             #print(f'Drone[{id}] status: [{exist_status}], [{focus_status}], [{size_status}]')
         print("Success: ", success)
@@ -292,7 +319,8 @@ class Env:
         # Get area reward from drones
         area_reward = {}
         for id, drone in enumerate(droneList):
-            area_reward[id] = self.dc.testAreaCoverage(drone)
+            #print("cam_shifted: ", cam_shifted[id])
+            area_reward[id] = self.dc.testAreaCoverage(drone, self.camList, cam_shifted[id])
 
         # decide if episode should be terminated
         done = False
@@ -311,14 +339,13 @@ class Env:
         done = any(has_collided) or any(out_range) or sum(success) == target_num    
 
         # compute reward
-        reward = self.compute_reward(responses, exist_reward, focus_reward, area_reward, spread_reward, dsensor_reward, success, done)
+        reward = self.compute_reward(exist_reward, focus_reward, area_reward, spread_reward, dsensor_reward, success, done)
 
         # log info
         loginfo = []
         for id, drone in enumerate(droneList):
             info = {}
             info['Z'] = drone_pos[id].z_val
-            info['level'] = self.level
             if landed[id]:
                 info['status'] = 'landed'
             elif has_collided[id]:
@@ -336,8 +363,11 @@ class Env:
             else:
                 info['status'] = 'none'
             loginfo.append(info)
-            observation = [responses, drone_dist]
 
+        # convert responses from nested list into list. Used all of the images captured by drones.
+        obs_responses = self.nested_list_to_list(responses)  
+
+        observation = [obs_responses, drone_dist]
         return observation, reward, done, loginfo
 
     def stabilize(self, drone):
@@ -382,10 +412,10 @@ class Env:
             status = 'small'
         return status
 
-    def compute_reward(self, responses, exist_reward, focus_reward, area_reward, spread_reward, dsensor_reward, success, done):
+    def compute_reward(self, exist_reward, focus_reward, area_reward, spread_reward, dsensor_reward, success, done):
         reward = [None] * len(droneList)
         for id, drone in enumerate(droneList):         
-            img = responses[id]
+            #img = responses[id]
             exist_status = exist_reward[id]
             focus_status = focus_reward[id]
             #size_status = size_reward[id]
