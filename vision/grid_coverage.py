@@ -7,7 +7,7 @@ cell_width = 0.5  # in meter
 # projected_dist is the xy plane distance between drone and the center of covered area 
 proj_dist = 11  # in meter
 covered_length = 8 # in meter
-pad_size = 40 # in grid cells
+pad_size = 45 # in grid cells
 #covered_reward_pt = 0.01
 cell_value = 1
 covered_reward_pt = config.reward['area']
@@ -64,12 +64,12 @@ def covered_area(pos_x, pos_y, yaw, camList, cam_shifted_angle):
 
     # shifted yaw angles of the cameras 
     angle_shifted = deg_to_rad(cam_shifted_angle)
-    print("angle_shifted: ", angle_shifted)
+    #print("angle_shifted: ", angle_shifted)
     # loop for every camera in every drone.
     for i in range(len(camList)):
         #print("calculating covered area.")
         cam_yaw = yaw + i*cam_sep_angle + angle_shifted
-        print("cam_yaw: ", rad_to_deg(cam_yaw))
+        #print("cam_yaw: ", rad_to_deg(cam_yaw))
         pos = np.array([pos_x, pos_y])
         trans = np.array([proj_dist* math.cos(cam_yaw), proj_dist* math.sin(cam_yaw)])
         f_pos = np.sum([pos, trans], axis=0)

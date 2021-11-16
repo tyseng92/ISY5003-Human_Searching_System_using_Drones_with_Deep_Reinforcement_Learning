@@ -1,19 +1,3 @@
-'''
-Author: Sunghoon Hong
-Title: rddpg_per.py
-Description:
-    Recurrent Deep Deterministic Policy Gradient Agent
-    with Prioritized Experience Replay
-    for Airsim
-Detail:
-    - not use join()
-    - reset for zero-image error
-    - tensorflow v1 + keras
-    - soft update for target model
-    - PER using Sumtree & Proportional priority
-'''
-
-
 import os
 import csv
 import time

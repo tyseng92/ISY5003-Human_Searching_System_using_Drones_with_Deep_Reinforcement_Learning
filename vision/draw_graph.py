@@ -70,8 +70,8 @@ if __name__ == '__main__':
                     pmax.append(float(row[4]))
                 elif 'ddpg' in args.agent or 'td3' in args.agent:
                     avgvel.append(float(row[4]))
-                    avgQ.append(float(row[8]))
-                    avgact.append(float(row[9]))
+                    avgQ.append(float(row[7]))
+                    avgact.append(float(row[8]))
                 aloss.append(float(row[5]))
                 closs.append(float(row[6]))
 

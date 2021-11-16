@@ -25,6 +25,8 @@ min_height = -7
 max_height = -9
 min_x = -20
 max_x = 20
+min_y = -40
+max_y = 40
 
 # number of target to success
 target_num = 1
@@ -81,7 +83,7 @@ class Env:
             dist = distance.distance(self.gps_origin[id], gps_drone).m
             drone_dist.append(dist)
             print("Drone distance from origin: ", dist)
-        return drone_dist
+        return np.array(drone_dist)
 
     def capture_state_dist_imu(self):
         # Alternative way of getting drone distance from origin using IMU position.
@@ -92,7 +94,15 @@ class Env:
             dist = np.linalg.norm([pos.x_val, pos.y_val])
             drone_dist.append(dist)
             print("Drone distance from origin: ", dist)
-        return drone_dist
+        return np.array(drone_dist)
+
+    def capture_state_position(self):
+        drone_pos = []
+        for drone in droneList:
+            pos = self.dc.getDronePosition(drone)
+            drone_pos += [pos.x_val, pos.y_val, pos.z_val]
+        return np.array(drone_pos)
+
 
     def capture_state_speed(self):
         quad_spd = []
@@ -140,7 +150,7 @@ class Env:
         responses = self.capture_state_image()
 
         # get drone distance from origin using GPS position.
-        drone_dist = self.capture_state_dist_gps()
+        drone_dist = self.capture_state_position()
 
         # convert responses from nested list into list. Used all of the images captured by drones.
         obs_responses = self.nested_list_to_list(responses)  
@@ -160,21 +170,11 @@ class Env:
         cam_shifted = [0,0,0]
         for id, drone in enumerate(droneList):
             self.dc.changeDroneAlt(drone, -8)
-            # front or back
-            if quad_offset[id][3] == 1 or quad_offset[id][3] == 4:
-                self.dc.moveDroneBySelfFrame(drone, [quad_offset[id][0],0,0], 5*timeslice) # 2*timeslice 
+
+            # if quad_offset has length of 3, run continuous action.
+            if len(quad_offset[id]) == 3:
+                self.dc.moveDroneBySelfFrame(drone, [quad_offset[id][0],quad_offset[id][1],0], 5*timeslice) # 2*timeslice 
                 self.stabilize(drone)
-                #self.dc.changeDroneAlt(drone, -8)
-            # left or right
-            elif quad_offset[id][3] == 2 or quad_offset[id][3] == 5:
-                #self.dc.turnDroneBySelfFrame(drone, quad_offset[id][1]*angle_spd, 5*timeslice) # 2*timeslice
-                self.dc.moveDroneBySelfFrame(drone, [0,quad_offset[id][1],0], 5*timeslice) # 2*timeslice 
-                self.stabilize(drone)
-                #self.dc.changeDroneAlt(drone, -8)
-            # cam left or right
-            elif quad_offset[id][3] == 3 or quad_offset[id][3] == 6:
-                #self.camera_angle[2] += quad_offset[id][2]*angle_spd
-                #self.dc.setCameraAngle(self.camera_angle, drone)
                 self.camera_angle[0][2] += quad_offset[id][2]*angle_spd
                 self.camera_angle[1][2] += quad_offset[id][2]*angle_spd
                 self.camera_angle[2][2] += quad_offset[id][2]*angle_spd
@@ -186,20 +186,48 @@ class Env:
 
                 cam_shifted[id] = quad_offset[id][2]*angle_spd
 
-            # top and bottom
-            # elif quad_offset[id][3] == 3 or quad_offset[id][3] == 6:
-            #     self.dc.moveDroneBySelfFrame(drone, [0,0,quad_offset[id][2]], 2* timeslice)
-            #     self.stabilize(drone)
-            # for stop action quad_offset[id][3] == 0 
+            # else run discrete action.
             else:
-                pass 
+                # front or back
+                if quad_offset[id][3] == 1 or quad_offset[id][3] == 4:
+                    self.dc.moveDroneBySelfFrame(drone, [quad_offset[id][0],0,0], 5*timeslice) # 2*timeslice 
+                    self.stabilize(drone)
+                    #self.dc.changeDroneAlt(drone, -8)
+                # left or right
+                elif quad_offset[id][3] == 2 or quad_offset[id][3] == 5:
+                    #self.dc.turnDroneBySelfFrame(drone, quad_offset[id][1]*angle_spd, 5*timeslice) # 2*timeslice
+                    self.dc.moveDroneBySelfFrame(drone, [0,quad_offset[id][1],0], 5*timeslice) # 2*timeslice 
+                    self.stabilize(drone)
+                    #self.dc.changeDroneAlt(drone, -8)
+                # cam left or right
+                elif quad_offset[id][3] == 3 or quad_offset[id][3] == 6:
+                    #self.camera_angle[2] += quad_offset[id][2]*angle_spd
+                    #self.dc.setCameraAngle(self.camera_angle, drone)
+                    self.camera_angle[0][2] += quad_offset[id][2]*angle_spd
+                    self.camera_angle[1][2] += quad_offset[id][2]*angle_spd
+                    self.camera_angle[2][2] += quad_offset[id][2]*angle_spd
+                    self.camera_angle[3][2] += quad_offset[id][2]*angle_spd
+                    self.dc.setCameraAngle(self.camera_angle[0], drone, cam="1")
+                    self.dc.setCameraAngle(self.camera_angle[1], drone, cam="2")
+                    self.dc.setCameraAngle(self.camera_angle[2], drone, cam="4")
+                    self.dc.setCameraAngle(self.camera_angle[3], drone, cam="0")
 
-            # print("camera_angle_action:", self.camera_angle[0][2])
-            # print("camera_angle_action:", self.camera_angle[1][2])
-            # print("camera_angle_action:", self.camera_angle[2][2])
-            # print("camera_angle_action:", self.camera_angle[3][2])
-            
-            #self.dc.moveDrone(drone, [quad_offset[id][0], quad_offset[id][1], quad_offset[id][2]], 2* timeslice)
+                    cam_shifted[id] = quad_offset[id][2]*angle_spd
+
+                # top and bottom
+                # elif quad_offset[id][3] == 3 or quad_offset[id][3] == 6:
+                #     self.dc.moveDroneBySelfFrame(drone, [0,0,quad_offset[id][2]], 2* timeslice)
+                #     self.stabilize(drone)
+                # for stop action quad_offset[id][3] == 0 
+                else:
+                    pass 
+
+                # print("camera_angle_action:", self.camera_angle[0][2])
+                # print("camera_angle_action:", self.camera_angle[1][2])
+                # print("camera_angle_action:", self.camera_angle[2][2])
+                # print("camera_angle_action:", self.camera_angle[3][2])
+
+                #self.dc.moveDrone(drone, [quad_offset[id][0], quad_offset[id][1], quad_offset[id][2]], 2* timeslice)
 
         # Get follower drones position and linear velocity        
         landed = [False, False, False]
@@ -238,7 +266,8 @@ class Env:
         responses = self.capture_state_image()
 
         # get drone distance from origin using GPS position.
-        drone_dist = self.capture_state_dist_gps()
+        #drone_dist = self.capture_state_dist_gps()
+        drone_dist = self.capture_state_position()
 
         # get drone position from IMU 
         drone_pos = []
@@ -329,7 +358,7 @@ class Env:
         out_range = [False, False, False]
         for id, drone in enumerate(droneList):
             print("drone_pos[id].z_val: ", drone_pos[id].z_val)
-            if drone_pos[id].z_val > min_height or drone_pos[id].z_val < max_height or drone_pos[id].x_val > max_x or drone_pos[id].x_val < min_x: 
+            if drone_pos[id].z_val > min_height or drone_pos[id].z_val < max_height or drone_pos[id].x_val > max_x or drone_pos[id].x_val < min_x or drone_pos[id].y_val > max_y or drone_pos[id].y_val < min_y: 
                 out_range[id] = True
 
         print("has_collided: ", has_collided)
@@ -350,16 +379,16 @@ class Env:
                 info['status'] = 'landed'
             elif has_collided[id]:
                 info['status'] = 'collision'
-            elif any(dsensor_reward):
-                info['status'] = 'dsensor_close'     
             elif any(out_range):
                 info['status'] = 'dead'
             elif success[id] == True:
                 info['status'] = 'success'   
-            elif exist_reward[id] == 'miss':
-                info['status'] = 'miss'
             elif exist_reward[id] == 'found':
                 info['status'] = 'found_out'
+            elif any(dsensor_reward):
+                info['status'] = 'dsensor_close'     
+            elif exist_reward[id] == 'miss':
+                info['status'] = 'miss'
             else:
                 info['status'] = 'none'
             loginfo.append(info)

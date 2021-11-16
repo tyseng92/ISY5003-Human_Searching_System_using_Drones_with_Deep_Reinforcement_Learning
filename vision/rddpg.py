@@ -158,7 +158,11 @@ class RDDPGAgent(object):
 
     def build_actor_optimizer(self):
         pred_Q = self.critic.output
+        print("pred: ", pred_Q)
+        print("self.critic.input[2]: ", self.critic.input[2])
         action_grad = tf.gradients(pred_Q, self.critic.input[2])
+        print("action_grad: ", action_grad)
+        exit(0)
         target = -action_grad[0] / self.batch_size
         params_grad = tf.gradients(
             self.actor.output, self.actor.trainable_weights, target)

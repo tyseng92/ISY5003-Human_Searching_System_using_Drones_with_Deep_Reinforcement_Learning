@@ -283,7 +283,7 @@ class Yolov4():
         darknet.copy_image_from_bytes(
                 darknet_image, image_rgb.tobytes())
         detections = darknet.detect_image(
-                self.netMain, self.metaMain, darknet_image, thresh=0.70)
+                self.netMain, self.metaMain, darknet_image, thresh=0.85)
         return detections
     
     def display(self, detections, image):

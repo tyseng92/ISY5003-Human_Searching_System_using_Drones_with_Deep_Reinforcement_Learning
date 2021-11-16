@@ -16,8 +16,6 @@ from keras.models import Model
 from PIL import Image
 import cv2
 from airsim_env_tf1 import Env, ACTION
-#from absl import app, flags, logging
-#from absl.flags import FLAGS
 
 np.set_printoptions(suppress=True, precision=4)
 agent_name = 'rdqn'
@@ -26,11 +24,11 @@ num_cam = 4
 
 class RDQNAgent(object):
 
-    def __init__(self, state_size, action_size, lr,
+    def __init__(self, state_size, pos_size, action_size, lr,
                 gamma, batch_size, memory_size,
                 epsilon, epsilon_end, decay_step, load_model):
         self.state_size = state_size
-        self.vel_size = 3
+        self.pos_size = pos_size
         self.action_size = action_size
         self.lr = lr
         self.gamma = gamma
@@ -41,8 +39,9 @@ class RDQNAgent(object):
         self.decay_step = decay_step
         self.epsilon_decay = (epsilon - epsilon_end) / decay_step
 
+        # adjust gpu usage here
         tf_config = tf.ConfigProto()
-        tf_config.gpu_options.per_process_gpu_memory_fraction = 0.4
+        tf_config.gpu_options.per_process_gpu_memory_fraction = 0.85
         self.sess = tf.Session(config=tf_config)
         K.set_session(self.sess)
 
@@ -77,7 +76,7 @@ class RDQNAgent(object):
         image_process = Activation('tanh')(image_process)
 
         # vel process
-        vel = Input(shape=[self.vel_size])
+        vel = Input(shape=[self.pos_size])
         vel_process = Dense(6, kernel_initializer='he_normal', use_bias=False)(vel)
         vel_process = BatchNormalization()(vel_process)
         vel_process = Activation('tanh')(vel_process)
@@ -112,6 +111,8 @@ class RDQNAgent(object):
         Qvalue3 = Dense(self.action_size, kernel_initializer=tf.random_uniform_initializer(minval=-3e-3, maxval=3e-3))(Qvalue3)
 
         critic = Model(inputs=[image, vel], outputs=[Qvalue1, Qvalue2, Qvalue3])
+
+        critic.summary()
 
         critic._make_predict_function()
 
@@ -169,6 +170,7 @@ class RDQNAgent(object):
     def get_action(self, state):
         #print("state:", state)
         Qs1, Qs2, Qs3 = self.critic.predict(state)
+        #print("Q values: ", Qs1, Qs2, Qs3)
         Qmax1 = np.amax(Qs1)
         Qmax2 = np.amax(Qs2)
         Qmax3 = np.amax(Qs3)
@@ -181,7 +183,7 @@ class RDQNAgent(object):
         batch = random.sample(self.memory, self.batch_size)
 
         images = np.zeros([self.batch_size] + self.state_size)
-        vels = np.zeros([self.batch_size, self.vel_size])
+        vels = np.zeros([self.batch_size, self.pos_size])
 
         actions1 = np.zeros((self.batch_size))
         actions2 = np.zeros((self.batch_size))
@@ -190,7 +192,7 @@ class RDQNAgent(object):
         rewards = np.zeros((self.batch_size))
 
         next_images = np.zeros([self.batch_size] + self.state_size)
-        next_vels = np.zeros([self.batch_size, self.vel_size])
+        next_vels = np.zeros([self.batch_size, self.pos_size])
 
         dones = np.zeros((self.batch_size))
 
@@ -233,7 +235,9 @@ Environment interaction
 def transform_input(responses, img_height, img_width):
     dimg_list = []
     for img in responses:
-        dimg = np.array(cv2.cvtColor(img[:,:,:3], cv2.COLOR_BGR2GRAY))
+        # resize the image to half, from (224, 352) to (112, 176), so that less parameter is needed for the networks.
+        img_resized = cv2.resize(img, (img_width, img_height))
+        dimg = np.array(cv2.cvtColor(img_resized[:,:,:3], cv2.COLOR_BGR2GRAY))
         dnorm = np.zeros((img_height, img_width))
         dnorm = cv2.normalize(dimg, dnorm, 0, 255, cv2.NORM_MINMAX)
         dimg_list.append(dnorm)
@@ -273,16 +277,16 @@ if __name__ == '__main__':
     parser.add_argument('--verbose',    action='store_true')
     parser.add_argument('--load_model', action='store_true')
     parser.add_argument('--play',       action='store_true')
-    parser.add_argument('--img_height', type=int,   default=224)
-    parser.add_argument('--img_width',  type=int,   default=352)
+    parser.add_argument('--img_height', type=int,   default=112)
+    parser.add_argument('--img_width',  type=int,   default=176)
     parser.add_argument('--lr',         type=float, default=1e-4)
     parser.add_argument('--gamma',      type=float, default=0.99)
-    parser.add_argument('--seqsize',    type=int,   default=5)
+    parser.add_argument('--seqsize',    type=int,   default=4)
     parser.add_argument('--epoch',      type=int,   default=5)
     parser.add_argument('--batch_size', type=int,   default=32)
     parser.add_argument('--memory_size',type=int,   default=10000)
     #parser.add_argument('--train_start',type=int,   default=1000)
-    parser.add_argument('--train_start',type=int,   default=100)
+    parser.add_argument('--train_start',type=int,   default=300)
     parser.add_argument('--train_rate', type=int,   default=5)
     #parser.add_argument('--target_rate',type=int,   default=1000)
     parser.add_argument('--target_rate',type=int,   default=200)
@@ -304,8 +308,10 @@ if __name__ == '__main__':
     # state_size consists of [args.seqsize] images sets per history, where in every set, the number of images is [num_drone] times [num_cam].  
     state_size = [args.seqsize, args.img_height, args.img_width, num_drone*num_cam]
     action_size = 7
+    pos_size = num_drone*3
     agent = RDQNAgent(
         state_size=state_size,
+        pos_size=pos_size,
         action_size=action_size,
         lr=args.lr,
         gamma=args.gamma,
@@ -330,7 +336,7 @@ if __name__ == '__main__':
                 bestReward, timestep, score, avgQ = 0., 0, 0., 0.
                 observe = env.reset()
                 image, vel = observe
-                vel = np.array(vel)
+                #vel = np.array(vel)
                 try:
                     image = transform_input(image, args.img_height, args.img_width)
                 except:
@@ -352,7 +358,7 @@ if __name__ == '__main__':
                     real_action1, real_action2, real_action3 = interpret_action(action1), interpret_action(action2), interpret_action(action3)
                     observe, reward, done, info = env.step([real_action1, real_action2, real_action3])
                     image, vel = observe
-                    vel = np.array(vel)
+                    #vel = np.array(vel)
                     try:
                         image = transform_input(image, args.img_height, args.img_width)
                     except:
@@ -422,7 +428,7 @@ if __name__ == '__main__':
 
             observe = env.reset()
             image, vel = observe
-            vel = np.array(vel)
+            #vel = np.array(vel)
             try:
                 image = transform_input(image, args.img_height, args.img_width)
             except:
@@ -455,7 +461,7 @@ if __name__ == '__main__':
                 real_action1, real_action2, real_action3 = interpret_action(action1), interpret_action(action2), interpret_action(action3)
                 observe, reward, done, info = env.step([real_action1,real_action2,real_action3])
                 image, vel = observe
-                vel = np.array(vel)
+                #vel = np.array(vel)
                 info1, info2, info3 = info[0]['status'], info[1]['status'], info[2]['status']
                 print("Done: ", done)
                 print("Timestep: ", timestep)
