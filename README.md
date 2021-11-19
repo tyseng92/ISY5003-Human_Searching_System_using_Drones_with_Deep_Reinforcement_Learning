@@ -6,7 +6,7 @@
   
 ---
 ## Executive Summary
-Update introduction here.
+Airborne surveillance has become increasingly acceptedacross  multiple  countries.Consequently,  due  to  theCOVID-19 pandemic, it has brought about an increased needfor  monitoring  and  surveillance to  ensure  compliancefor social distancing, quarantine periods and behaviours thatmight encourage the spread of COVID-19. However, thereare  health  risk  posed  to  individuals  while  enforcing  thesenew  rules.   This  has  led  us  to  explore  autonomous  dronesto survey, find and identify specific person of individuals tomonitor. Countries  like  Singapore,  have  deployed  dronesto  monitor  certain  hot  spots,  albeit  through  the  manual  pi-loting of the UAV drones.  This initial proof-of-conceptcan be used to identify non-compliant individuals within thecommunity or find an individual in a indoor area to preventhe/she from jeopardising other’s health. Deep ReinforcementLearning, which has proven to perform well in dynamic en-vironments where only partial observability is available,was  used  to  assess  and  minimize  the  time  required  to  finda person-of-interest.   To simulate this,  we created a customenvironment in Microsoft AirSIM and have conformed it toa indoor area with high ceilings. Cognition of drone positionis achieved via the IMU sensor and UAV obstacle detectionis done using the laser range sensor pointed at multiple direc-tions. This use-case can be further expanded to time-sensitivesearch tasks and potentially be employed to places with highconcentration of people like the airport or a mall.  Re-ID is  planned  for  future  works.   Our  comparison  between  ourbaseline  model,  Recurrent-DQN  and  Reccurent-DDPG  ispresented in this report.
 
 
 ---
@@ -60,7 +60,7 @@ We have trained the Yolov4 model based on our custom datasets for human target. 
 ### Adjust GPU VRAM usage
 To change the VRAM usage, open the `<model>.py` code in any editor and Ctrl+F for `per_process_gpu_memory_fraction`. Adjust the value according to your GPU VRAM. 
 
-## SIMULATION VIDEO DEMO
+## SECTION 5 : SIMULATION VIDEO DEMO
 Below are the link for the demo video of the drone searching system based on Random Actor, RDQN and RDDPG.
 
 * [Random Actor Demo](https://youtu.be/v8Di07hC5-U)
@@ -68,7 +68,7 @@ Below are the link for the demo video of the drone searching system based on Ran
 * [RDDPG Demo](https://youtu.be/Gde0IXyrWVY)
 
 ---
-## ACKNOWLEDGEMENT AND REFERENCES
+## SECTION 6 : ACKNOWLEDGEMENT AND REFERENCES
 
 Special thanks to Sung Hoon Hong and raymondng76 for providing the methods to control drones with deep reinforcement learning:
 * [sunghoonhong/AirsimDRL: Autonomous UAV Navigation without Collision using Visual Information in Airsim](https://github.com/sunghoonhong/AirsimDRL)
