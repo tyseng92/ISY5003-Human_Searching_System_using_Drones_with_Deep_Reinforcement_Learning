@@ -16,13 +16,13 @@
 	},
 	"SubWindows": [
 		{"WindowID": 0, "CameraName": "0", "ImageType": 0, "VehicleName": "Drone0", "Visible": true},
-		{"WindowID": 1, "CameraName": "0", "ImageType": 0, "VehicleName": "Drone1", "Visible": true},
-		{"WindowID": 2, "CameraName": "0", "ImageType": 0, "VehicleName": "Drone2", "Visible": true}
+		{"WindowID": 1, "CameraName": "1", "ImageType": 0, "VehicleName": "Drone0", "Visible": true},
+		{"WindowID": 2, "CameraName": "4", "ImageType": 0, "VehicleName": "Drone0", "Visible": true}
 	],
 	"Vehicles": {
 		"Drone0": {
 			"VehicleType": "SimpleFlight",
-			"X": 3, "Y": 0, "Z": -0.2,
+			"X": 3, "Y": 0, "Z": -8.2,
 			"Sensors": {
 				"Gps1": {
 					"SensorType": 3,
@@ -83,7 +83,7 @@
 		},
 		"Drone1": {
 			"VehicleType": "SimpleFlight",
-			"X": 0, "Y": -3, "Z": -0.2,
+			"X": 0, "Y": -3, "Z": -8.2,
 			"Sensors": {
 				"Gps1": {
 					"SensorType": 3,
@@ -144,7 +144,7 @@
 		},
 		"Drone2": {
 			"VehicleType": "SimpleFlight",
-			"X": 0, "Y": 3, "Z": -0.2,
+			"X": 0, "Y": 3, "Z": -8.2,
 			"Sensors": {
 				"Gps1": {
 					"SensorType": 3,

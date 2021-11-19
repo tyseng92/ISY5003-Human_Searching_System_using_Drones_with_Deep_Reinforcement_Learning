@@ -2,9 +2,9 @@
 *.pyc
 *.weights
 *.mp4
-vision/checkpoints
 *.h5
 *.csv
 *.png
-vision/darknet
-presentation/challenges.txt
+code/darknet
+presentation/
+captured_images/
