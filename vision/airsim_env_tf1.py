@@ -19,6 +19,9 @@ dsensor_thrd = 10
 
 focus_size = 0.7
 
+# spread threshold
+spread_thd =15
+
 # base on UE4 coordinate with NED frame
 floorZ = 0 
 min_height = -7 
@@ -282,7 +285,7 @@ class Env:
 
         # determine spread reward 
         spread_reward = 'far'
-        if total_spread <= 150:
+        if total_spread <= spread_thd:
             spread_reward = 'near'
         print('spread_reward: ', spread_reward)
 
@@ -379,7 +382,7 @@ class Env:
                 info['status'] = 'landed'
             elif has_collided[id]:
                 info['status'] = 'collision'
-            elif any(out_range):
+            elif out_range[id]:
                 info['status'] = 'dead'
             elif success[id] == True:
                 info['status'] = 'success'   

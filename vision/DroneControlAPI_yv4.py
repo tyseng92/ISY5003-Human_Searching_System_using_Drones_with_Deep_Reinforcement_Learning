@@ -392,6 +392,7 @@ class DroneControl:
         yaw = self.getYawDeg(drone)
 
         reward = covered_area(pos.x_val, pos.y_val, yaw, camList, cam_shifted_angle)
+        #print("pos.x and y: ", pos.x_val, pos.y_val)
         print("area reward: ", reward)
         return reward
 

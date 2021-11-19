@@ -7,3 +7,4 @@ vision/checkpoints
 *.csv
 *.png
 vision/darknet
+presentation/challenges.txt

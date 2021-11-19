@@ -11,71 +11,60 @@ Update introduction here.
 
 ---
 ## Team Members
-Members  : Ng YanBo, Teoh Yee Seng
+Members: Teoh Yee Seng, Ng YanBo
 
 ---
 ## Installation Guide
 
 ### System Requirements
 1. OS: Windows 10
-2. Python: 3.6.7 (Anaconda or Miniconda distribution preferred)
+2. Python: 3.7.0 (Anaconda or Miniconda distribution preferred)
 3. Microsoft AirSim (v1.6 on Windows 10)
-4. GPU (Discrete GPU preferred for running environment, playing simulations and training)
-5. For Ubuntu Setup:
-   - Docker
-   - nvidia-docker
+4. Nvidia GPU (Prefer Turing Architecture)
 
 ### Downloading Code
 1. Clone this project: `git clone https://github.com/tyseng92/ISY5003-IRS-Practice-Module`
 2. Change Directory: `cd ISY5003-IRS-Practice-Module`
-3. Follow further instructions below
-
-### AirSim Environment Install/Run
-
-#### Windows 10
-1. Download and unzip your preferred environment from the [AirSim release 1.2.2 page](https://github.com/microsoft/AirSim/releases/tag/v.1.2.2)
-2. Run the AirSim environment by double-clicking on `run.bat`
-
 
 ### Python Environment and Dependencies
 1. Create new conda environment: `conda env create -f airsim.yml`
 2. Switch environment: `conda activate airsim`
 3. Update environment: `conda env update --file airsim.yml --prune`
 
+### Custom AirSim Environment Executable
+1. Copy the settings.json file from the "UE4" folder into the right folder for the AirSim to initialize the environment correctly (usually in the "C:\Users\[UserName]\Documents\AirSim" path).
+2. Download and unzip the custom environment called [HumanTrackingDrone]()
+3. Launch the "HumanTrackingDrone" custom environment by double-clicking on `run.bat`
 
 ### Loading of Model Weights
-1. To convert darknet weights to tensorflow model, run `python save_model.py --model yolov4` in vision folder. 
+1. Download and unzip the binary package for the Yolov4 Darknet.
+2. Move the "darknet" folder to the root folder.  
 
-### Running the simulation (Supported in Local only)
+### Training the Models
+1. Start the Custum AirSim Environment.
+2. Open Command Prompt and cd to the "code" folder in the repo.
+3. To train the models from scratch, run `python <model>.py --verbose` in the command prompt, where the model can be replace by `random_d`, `rdqn`, and `rddpg`.
+4. To continue the training using previous trained model, make sure the .h5 files are available, and execute `python <models>.py --verbose --load_model` without `--play` in the command prompt.
+5. Press `Ctrl-C` to end the training process.
 
-
-### Training the RL Models
-
-#### Local Training
-1. Ensure the AirSim environment is running
-2. To train the models from scratch, execute `python <model>.py --verbose`. Options include
-   - `rdqn.py`
-   - `rdqn_triple_model.py`
-   - `rddpg_triple_model.py`
-3. To resume training, execute `python <models>.py --verbose --load_model`
-3. To stop the training press `Ctrl-c`
+### Evaluate the Models
+1. Start the Custum AirSim Environment.
+2. Open Command Prompt and cd to the "code" folder in the repo.
+3. To test run and evaluate the models, run `python <model>.py --play --load_model` in the command prompt, where the model can be replace by `random_d`, `rdqn`, and `rddpg`.
+5. Press `Ctrl-C` to end the evaluation process.
 
 ## SECTION 5 : SIMULATION VIDEO DEMO
+Below are the link for the demo video of the drone searching system based on Random Actor, RDQN and RDDPG.
 
-### Iteration 2
-[![Iteration 2](http://img.youtube.com/vi/ZT0SEAQG_U0/0.jpg)](https://www.youtube.com/watch?v=ZT0SEAQG_U0 "Iteration 2")
+* [Random Actor Demo](https://youtu.be/v8Di07hC5-U)
+* [RDQN Demo](https://youtu.be/mWKVdg_JyNo)
+* [RDDPG Demo](https://youtu.be/Gde0IXyrWVY)
 
 ---
 ## SECTION 6 : ACKNOWLEDGEMENT AND REFERENCES
 
-- Code is based on the efforts of Sung Hoon Hong: [sunghoonhong/AirsimDRL: Autonomous UAV Navigation without Collision using Visual Information in Airsim](https://github.com/sunghoonhong/AirsimDRL)
+Special thanks to Sung Hoon Hong and raymondng76 for providing the methods for deep reinforcement learning with drones:
+* [sunghoonhong/AirsimDRL: Autonomous UAV Navigation without Collision using Visual Information in Airsim](https://github.com/sunghoonhong/AirsimDRL)
+* [Aerial filming with synchronized drones using Reinforcement Learning](https://github.com/raymondng76/IRS-Practice-Module-Dev.git)
 
-- Additional Citations are in the report
-
-Related weblink for the drone search operation:
-- https://towardsdatascience.com/deep-q-learning-tutorial-mindqn-2a4c855abffc
-- https://link.springer.com/article/10.1007/s00521-020-05097-x
-- https://www.hindawi.com/journals/complexity/2018/6879419/
-- https://onlinelibrary.wiley.com/doi/epdf/10.1002/rob.20226
-- https://ieeexplore.ieee.org/document/6290694
 ---

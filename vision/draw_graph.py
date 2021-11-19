@@ -65,6 +65,8 @@ if __name__ == '__main__':
             if 'rdqn' in args.agent:
                 closs.append(float(row[4]))
                 avgQ.append(float(row[5]))
+            elif 'random_d' in args.agent or "random_c" in args.agent:
+                pass
             else:
                 if 'a2c' in args.agent:
                     pmax.append(float(row[4]))
@@ -74,17 +76,21 @@ if __name__ == '__main__':
                     avgact.append(float(row[8]))
                 aloss.append(float(row[5]))
                 closs.append(float(row[6]))
+                
 
     episodes = [i for i in range(len(bestReward))]    
     metrics = [
         score,
         step,
-        bestReward,
-        closs
+        bestReward
     ]
     if 'rdqn' in args.agent:
+        metrics += [closs]
         metrics += [avgQ]
+    elif 'random_d' in args.agent or "random_c" in args.agent:
+        pass
     else:
+        metrics += [closs]
         metrics += [aloss]
         if 'a2c' in args.agent:
             metrics += [pmax]
@@ -94,13 +100,16 @@ if __name__ == '__main__':
     labels = [
         'Total Score per Episode',
         'TimeStep per Episode',
-        'Best Reward per Episode',
-        'Critic loss per Episode'
+        'Best Reward per Episode'
         # 'End status'
     ]
     if 'rdqn' in args.agent:
+        labels += ['Critic loss per Episode']
         labels += ['Avg Q']
-    else:    
+    elif 'random_d' in args.agent or "random_c" in args.agent:
+        pass
+    else:
+        labels += ['Critic loss per Episode']    
         labels += ['Actor loss']
         if 'a2c' in args.agent:
             labels += ['P max']

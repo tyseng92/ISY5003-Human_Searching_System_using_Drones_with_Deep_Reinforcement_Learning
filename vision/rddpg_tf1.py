@@ -148,10 +148,22 @@ class RDDPGAgent(object):
         actor = Model(inputs=[image, vel], outputs=[policy1, policy2, policy3])
         
         # Critic
-        action = Input(shape=[self.action_size*3])
-        action_process = Dense(48, kernel_initializer='he_normal', use_bias=False)(action)
-        action_process = BatchNormalization()(action_process)
-        action_process = Activation('tanh')(action_process)
+        action1 = Input(shape=[self.action_size])
+        action_process1 = Dense(48, kernel_initializer='he_normal', use_bias=False)(action1)
+        action_process1 = BatchNormalization()(action_process1)
+        action_process1 = Activation('tanh')(action_process1)
+
+        action2 = Input(shape=[self.action_size])
+        action_process2 = Dense(48, kernel_initializer='he_normal', use_bias=False)(action2)
+        action_process2 = BatchNormalization()(action_process2)
+        action_process2 = Activation('tanh')(action_process2)
+
+        action3 = Input(shape=[self.action_size])
+        action_process3 = Dense(48, kernel_initializer='he_normal', use_bias=False)(action3)
+        action_process3 = BatchNormalization()(action_process3)
+        action_process3 = Activation('tanh')(action_process3)
+
+        action_process = Add()([action_process1, action_process2, action_process3])
 
         state_action = Add()([state_process, action_process])
 
@@ -179,7 +191,7 @@ class RDDPGAgent(object):
         Qvalue3 = ELU()(Qvalue3)
         Qvalue3 = Dense(1, kernel_initializer=tf.random_uniform_initializer(minval=-3e-3, maxval=3e-3))(Qvalue3)
         
-        critic = Model(inputs=[image, vel, action], outputs=[Qvalue1, Qvalue2, Qvalue3])
+        critic = Model(inputs=[image, vel, action1, action2, action3], outputs=[Qvalue1, Qvalue2, Qvalue3])
 
         actor.summary()
         critic.summary()
@@ -191,19 +203,19 @@ class RDDPGAgent(object):
 
     def build_actor_optimizer(self):
         pred_Q1, pred_Q2, pred_Q3 = self.critic.output
-        # split out actions from self.critic.input as self.critic.input consists of all actions (length of 9: action1 + action2 + action3) 
-        #action1, action2, action3 = [self.critic.input[2][x:x+self.action_size] for x in range(0, self.critic.input[2].shape[1], self.action_size)]
-        action1, action2, action3 = tf.split(self.critic.input[2],num_or_size_splits=self.action_size, axis=1)
-        print("action1: ", action1)
+        ## split out actions from self.critic.input as self.critic.input consists of all actions (length of 9: action1 + action2 + action3) 
+        ##action1, action2, action3 = [self.critic.input[2][x:x+self.action_size] for x in range(0, self.critic.input[2].shape[1], self.action_size)]
+        #action1, action2, action3 = tf.split(self.critic.input[2],num_or_size_splits=self.action_size, axis=1)
+        #print("action1: ", action1)
         print("pred: ", pred_Q1)
-        action_grad1 = tf.gradients(pred_Q1, action1, unconnected_gradients='zero')
-        action_grad2 = tf.gradients(pred_Q2, action2, unconnected_gradients='zero')
-        action_grad3 = tf.gradients(pred_Q3, action3, unconnected_gradients='zero')
+        action_grad1 = tf.gradients(pred_Q1, self.critic.input[2])
+        action_grad2 = tf.gradients(pred_Q2, self.critic.input[3])
+        action_grad3 = tf.gradients(pred_Q3, self.critic.input[4])
         print("action_grad: ", action_grad1)
         target1 = -action_grad1[0] / self.batch_size
         target2 = -action_grad2[0] / self.batch_size
         target3 = -action_grad3[0] / self.batch_size
-
+        print("target: ", target1)
         params_grad1 = tf.gradients(
             self.actor.output[0], self.actor.trainable_weights, target1)
         params_grad2 = tf.gradients(
@@ -232,7 +244,7 @@ class RDDPGAgent(object):
         optimizer = tf.train.AdamOptimizer(self.actor_lr)
         updates = optimizer.apply_gradients(grads)
         train = K.function(
-            [self.actor.input[0], self.actor.input[1], self.critic.input[2]],
+            [self.actor.input[0], self.actor.input[1], self.critic.input[2], self.critic.input[3], self.critic.input[4]],
             [global_norm],
             updates=[updates]
         )
@@ -249,8 +261,13 @@ class RDDPGAgent(object):
         preloss2 = K.mean(K.square(pred2 - y2))
         preloss3 = K.mean(K.square(pred3 - y3))
 
-        concatpreloss = tf.stack([preloss1, preloss2, preloss3], axis=0)
-        loss = K.mean(concatpreloss)
+        #concatpreloss = tf.stack([preloss1, preloss2, preloss3], axis=0)
+        #print("preloss1: ", preloss1)
+        #print("concatpreloss: ", concatpreloss)
+        #loss = K.mean(concatpreloss)
+        #print("loss: ", loss)
+        avgloss = (preloss1 + preloss2 + preloss3)/3
+        print("avgloss: ", avgloss)
         # Huber Loss
         # error = K.abs(y - pred)
         # quadratic = K.clip(error, 0.0, 1.0)
@@ -258,10 +275,10 @@ class RDDPGAgent(object):
         # loss = K.mean(0.5 * K.square(quadratic) + linear)
 
         optimizer = Adam(lr=self.critic_lr)
-        updates = optimizer.get_updates(self.critic.trainable_weights, [], loss)
+        updates = optimizer.get_updates(self.critic.trainable_weights, [], avgloss)
         train = K.function(
-            [self.critic.input[0], self.critic.input[1], self.critic.input[2], y1, y2, y3],
-            [loss],
+            [self.critic.input[0], self.critic.input[1], self.critic.input[2], self.critic.input[3], self.critic.input[4], y1, y2, y3],
+            [avgloss],
             updates=updates
         )
         return train
@@ -309,16 +326,16 @@ class RDDPGAgent(object):
         next_states = [next_images, next_vels]
         policy1, policy2, policy3 = self.actor.predict(states)
         target_actions1, target_actions2, target_actions3 = self.target_actor.predict(next_states)
-        target_actions = np.concatenate([target_actions1,target_actions2,target_actions3], axis=1)
-        target_next_Qs = self.target_critic.predict(next_states + [target_actions])
-        targets1 = rewards + self.gamma * (1 - dones) * target_next_Qs[0]
-        targets2 = rewards + self.gamma * (1 - dones) * target_next_Qs[1]
-        targets3 = rewards + self.gamma * (1 - dones) * target_next_Qs[2]
+        #target_actions = np.concatenate([target_actions1,target_actions2,target_actions3], axis=1)
+        target_next_Qs1, target_next_Qs2, target_next_Qs3 = self.target_critic.predict(next_states + [target_actions1, target_actions2, target_actions3])
+        targets1 = rewards + self.gamma * (1 - dones) * target_next_Qs1
+        targets2 = rewards + self.gamma * (1 - dones) * target_next_Qs2
+        targets3 = rewards + self.gamma * (1 - dones) * target_next_Qs3
 
-        policy = np.hstack((policy1, policy2, policy3))
-        actions = np.hstack((actions1, actions2, actions3))
-        actor_loss = self.actor_update(states + [policy])
-        critic_loss = self.critic_update(states + [actions, targets1, targets2, targets3])
+        #policy = np.hstack((policy1, policy2, policy3))
+        #actions = np.hstack((actions1, actions2, actions3))
+        actor_loss = self.actor_update(states + [policy1, policy2, policy3])
+        critic_loss = self.critic_update(states + [actions1, actions2, actions3, targets1, targets2, targets3])
         return actor_loss[0], critic_loss[0]
 
     def append_memory(self, state, action1, action2, action3, reward, next_state, done):        
@@ -391,14 +408,14 @@ if __name__ == '__main__':
     parser.add_argument('--gamma',      type=float, default=0.99)
     parser.add_argument('--lambd',      type=float, default=0.90)
     parser.add_argument('--seqsize',    type=int,   default=5)
-    parser.add_argument('--epoch',      type=int,   default=1)
+    parser.add_argument('--epoch',      type=int,   default=5)
     parser.add_argument('--batch_size', type=int,   default=32)
     parser.add_argument('--memory_size',type=int,   default=10000)
-    parser.add_argument('--train_start',type=int,   default=500)
-    parser.add_argument('--train_rate', type=int,   default=4)
+    parser.add_argument('--train_start',type=int,   default=200)
+    parser.add_argument('--train_rate', type=int,   default=5)
     parser.add_argument('--epsilon',    type=float, default=1)
-    parser.add_argument('--epsilon_end',type=float, default=0.01)
-    parser.add_argument('--decay_step', type=int,   default=20000)
+    parser.add_argument('--epsilon_end',type=float, default=0.05)
+    parser.add_argument('--decay_step', type=int,   default=3000)
 
     args = parser.parse_args()
 
@@ -441,7 +458,8 @@ if __name__ == '__main__':
                 bug = False
 
                 # stats
-                bestY, timestep, score, avgvel, avgQ = 0., 0, 0., 0., 0.
+                # stats
+                bestReward, timestep, score, avgvel, avgQ, avgAct = 0., 0, 0., 0., 0., 0.
 
                 observe = env.reset()
                 image, vel = observe
@@ -452,7 +470,9 @@ if __name__ == '__main__':
                 history = np.stack([image] * args.seqsize, axis=1)
                 vel = vel.reshape(1, -1)
                 state = [history, vel]
+                print(f'Main Loop: done: {done}, timestep: {timestep}')
                 while not done:
+                    print(f'Sub Loop: timestep: {timestep}')
                     timestep += 1
                     # snapshot = np.zeros([0, args.img_width, 1])
                     # for snap in state[0][0]:
@@ -488,9 +508,9 @@ if __name__ == '__main__':
                     info1, info2, info3 = info[0]['status'], info[1]['status'], info[2]['status']
 
                     # stats
-                    action = np.concatenate([action1,action2,action3])
-                    print("action: ", action)
-                    Qs1, Qs2, Qs3 = agent.critic.predict([state[0], state[1], action.reshape(1, -1)])
+                    #action = np.concatenate([action1,action2,action3])
+                    #print("action: ", action)
+                    Qs1, Qs2, Qs3 = agent.critic.predict([state[0], state[1], action1.reshape(1, -1), action2.reshape(1, -1), action3.reshape(1, -1)])
                     Qs1, Qs2, Qs3 = Qs1[0][0], Qs2[0][0], Qs3[0][0]
                     avgQ += float(Qs1 + Qs2 + Qs3)
                     avgvel += float(np.linalg.norm(real_action1)+np.linalg.norm(real_action2)+np.linalg.norm(real_action3))
@@ -515,6 +535,15 @@ if __name__ == '__main__':
                 # done
                 print('Ep %d: BestReward %.3f Step %d Score %.2f AvgQ %.2f AvgVel %.2f Info1 %s Info2 %s Info3 %s'
                         % (episode, bestReward, timestep, score, avgQ, avgvel, info1, info2, info3))
+
+                stats = [
+                    episode, timestep, score, bestReward, avgvel, \
+                    avgQ, avgAct, info[0]['status'], info[1]['status'], info[2]['status']
+                ]
+                # log stats
+                with open('save_stat/'+ agent_name + '_test_stat.csv', 'a', encoding='utf-8', newline='') as f:
+                    wr = csv.writer(f)
+                    wr.writerow(['%.4f' % s if type(s) is float else s for s in stats])
 
                 episode += 1
             except KeyboardInterrupt:
@@ -599,7 +628,7 @@ if __name__ == '__main__':
                     # stats
                     action = np.concatenate([action1,action2,action3])
                     print("action: ", action)
-                    Qs1, Qs2, Qs3 = agent.critic.predict([state[0], state[1], action.reshape(1, -1)])
+                    Qs1, Qs2, Qs3 = agent.critic.predict([state[0], state[1], action1.reshape(1, -1), action2.reshape(1, -1), action3.reshape(1, -1)])
                     Qs1, Qs2, Qs3 = Qs1[0][0], Qs2[0][0], Qs3[0][0]
                     avgQ += float(Qs1 + Qs2 + Qs3)
                     avgvel += float(np.linalg.norm(real_policy1)+np.linalg.norm(real_policy2)+np.linalg.norm(real_policy3))

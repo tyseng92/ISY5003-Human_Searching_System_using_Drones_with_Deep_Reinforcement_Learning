@@ -281,19 +281,19 @@ if __name__ == '__main__':
     parser.add_argument('--img_width',  type=int,   default=176)
     parser.add_argument('--lr',         type=float, default=1e-4)
     parser.add_argument('--gamma',      type=float, default=0.99)
-    parser.add_argument('--seqsize',    type=int,   default=4)
+    parser.add_argument('--seqsize',    type=int,   default=5)
     parser.add_argument('--epoch',      type=int,   default=5)
     parser.add_argument('--batch_size', type=int,   default=32)
     parser.add_argument('--memory_size',type=int,   default=10000)
     #parser.add_argument('--train_start',type=int,   default=1000)
-    parser.add_argument('--train_start',type=int,   default=300)
+    parser.add_argument('--train_start',type=int,   default=200)
     parser.add_argument('--train_rate', type=int,   default=5)
-    #parser.add_argument('--target_rate',type=int,   default=1000)
-    parser.add_argument('--target_rate',type=int,   default=200)
+    #parser.add_argument('--target_rate',type=int,   default=200)
+    parser.add_argument('--target_rate',type=int,   default=100)
     parser.add_argument('--epsilon',    type=float, default=1)
     parser.add_argument('--epsilon_end',type=float, default=0.05)
     #parser.add_argument('--decay_step', type=int,   default=20000)
-    parser.add_argument('--decay_step', type=int,   default=2000)
+    parser.add_argument('--decay_step', type=int,   default=3000)
 
     args = parser.parse_args()
 
@@ -394,6 +394,15 @@ if __name__ == '__main__':
 
                 print('Ep %d: BestReward %.3f Step %d Score %.2f AvgQ %.2f Info1 %s Info2 %s Info3 %s'
                         % (episode, bestReward, timestep, score, avgQ, info1, info2, info3))
+
+                stats = [
+                episode, timestep, score, bestReward, \
+                avgQ, info[0]['status'], info[1]['status'], info[2]['status']
+                ]
+                # log stats
+                with open('save_stat/'+ agent_name + '_test1_stat.csv', 'a', encoding='utf-8', newline='') as f:
+                    wr = csv.writer(f)
+                    wr.writerow(['%.4f' % s if type(s) is float else s for s in stats])
 
                 episode += 1
             except KeyboardInterrupt:
