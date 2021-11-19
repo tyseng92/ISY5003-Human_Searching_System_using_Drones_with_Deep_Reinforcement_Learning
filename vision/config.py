@@ -10,7 +10,7 @@ reward = {
     #'small_out': 0.5,
 
     # area reward, 10.0 is given if the drone successfully explore the whole area
-    'area': 10.0,
+    'area': 100.0,
     'none': 0,
     'near': -1.0,
 

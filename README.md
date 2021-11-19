@@ -29,11 +29,11 @@ Members: Teoh Yee Seng, Ng YanBo
 ### Python Environment and Dependencies
 1. Create new conda environment: `conda env create -f airsim.yml`
 2. Switch environment: `conda activate airsim`
-3. Update environment: `conda env update --file airsim.yml --prune`
+3. (Optional)Update environment: `conda env update --file airsim.yml --prune`
 
 ### Custom AirSim Environment Executable
 1. Copy the settings.json file from the "UE4" folder into the right folder for the AirSim to initialize the environment correctly (usually in the "C:\Users\[UserName]\Documents\AirSim" path).
-2. Download and unzip the custom environment called [HumanTrackingDrone]()
+2. Download and unzip the custom environment called [HumanTrackingDrone_Env (950.MB)](https://drive.google.com/file/d/1Er62EeK0vh_1oO_XnZ6e7UDz57tjCdxy/view?usp=sharing)
 3. Launch the "HumanTrackingDrone" custom environment by double-clicking on `run.bat`
 
 ### Loading of Model Weights
@@ -63,7 +63,7 @@ Below are the link for the demo video of the drone searching system based on Ran
 ---
 ## SECTION 6 : ACKNOWLEDGEMENT AND REFERENCES
 
-Special thanks to Sung Hoon Hong and raymondng76 for providing the methods for deep reinforcement learning with drones:
+Special thanks to Sung Hoon Hong and raymondng76 for providing the methods to control drones with deep reinforcement learning:
 * [sunghoonhong/AirsimDRL: Autonomous UAV Navigation without Collision using Visual Information in Airsim](https://github.com/sunghoonhong/AirsimDRL)
 * [Aerial filming with synchronized drones using Reinforcement Learning](https://github.com/raymondng76/IRS-Practice-Module-Dev.git)
 
