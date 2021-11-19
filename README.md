@@ -60,7 +60,7 @@ We have trained the Yolov4 model based on our custom datasets for human target. 
 ### Adjust GPU VRAM usage
 To change the VRAM usage, open the `<model>.py` code in any editor and Ctrl+F for `per_process_gpu_memory_fraction`. Adjust the value according to your GPU VRAM. 
 
-## SECTION 5 : SIMULATION VIDEO DEMO
+## SIMULATION VIDEO DEMO
 Below are the link for the demo video of the drone searching system based on Random Actor, RDQN and RDDPG.
 
 * [Random Actor Demo](https://youtu.be/v8Di07hC5-U)
@@ -68,7 +68,7 @@ Below are the link for the demo video of the drone searching system based on Ran
 * [RDDPG Demo](https://youtu.be/Gde0IXyrWVY)
 
 ---
-## SECTION 6 : ACKNOWLEDGEMENT AND REFERENCES
+## ACKNOWLEDGEMENT AND REFERENCES
 
 Special thanks to Sung Hoon Hong and raymondng76 for providing the methods to control drones with deep reinforcement learning:
 * [sunghoonhong/AirsimDRL: Autonomous UAV Navigation without Collision using Visual Information in Airsim](https://github.com/sunghoonhong/AirsimDRL)
