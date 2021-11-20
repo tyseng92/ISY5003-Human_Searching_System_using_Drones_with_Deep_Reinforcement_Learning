@@ -265,7 +265,7 @@ class DroneControl:
             return None
         if bbox != []:
             print("bbox: ", bbox)
-            #self.yolo.display(bbox, img_rgb)
+            self.yolo.display(bbox, img_rgb)
         return bbox
 
     def convert_bbox(self, x, y, w, h):

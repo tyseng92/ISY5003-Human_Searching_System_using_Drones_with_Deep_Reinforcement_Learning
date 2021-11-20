@@ -20,7 +20,10 @@ dsensor_thrd = 10
 focus_size = 0.7
 
 # spread threshold
-spread_thd =15
+spread_thd = 5
+
+# best area score list
+#best_area = [0, 0, 0] 
 
 # base on UE4 coordinate with NED frame
 floorZ = 0 
@@ -30,6 +33,11 @@ min_x = -20
 max_x = 20
 min_y = -40
 max_y = 40
+small_boundary_ratio = 0.85
+min_small_x = min_x * small_boundary_ratio
+max_small_x = max_x * small_boundary_ratio
+min_small_y = min_y * small_boundary_ratio
+max_small_y = max_y * small_boundary_ratio
 
 # number of target to success
 target_num = 1
@@ -53,6 +61,7 @@ class Env:
         self.camList = [0,1,2,4]
         #self.camera_angle = [-50, 0, 0]
         self.camera_angle = [[-50, 0, 90], [-50, 0, -90], [-50, 0, 0], [-50, 0, 0]] 
+        self.best_area = [0, 0, 0]
 
         # initialize gps origin for distance calculation
         self.gps_origin = []
@@ -133,6 +142,7 @@ class Env:
         print("RESET")
         self.dc.resetAndRearm_Drones()
         self.dc.reset_area()
+        self.best_area = [0, 0, 0]
 
         # all drones takeoff
         self.dc.simPause(False)
@@ -148,7 +158,7 @@ class Env:
             self.dc.setCameraAngle(self.camera_angle[1], drone, cam="2")
             self.dc.setCameraAngle(self.camera_angle[2], drone, cam="4")
             self.dc.setCameraAngle(self.camera_angle[3], drone, cam="0")
-
+            
         # Initial image capturing by drones
         responses = self.capture_state_image()
 
@@ -277,16 +287,18 @@ class Env:
         for drone in droneList:
             drone_pos.append(self.dc.getDronePosition(drone)) 
 
-        # calculate the total gap distance between drones
-        pos_comb = itertools.combinations(drone_pos, 2)
-        total_spread = 0
-        for com in pos_comb:
-            total_spread += np.linalg.norm([com[0].x_val - com[1].x_val, com[0].y_val - com[1].y_val])
-
-        # determine spread reward 
+        # calculate the gaps distance between drones, and determine the spread reward.
         spread_reward = 'far'
-        if total_spread <= spread_thd:
-            spread_reward = 'near'
+        pos_comb = itertools.combinations(drone_pos, 2)
+        drone_spread = 0
+        for com in pos_comb:
+            drone_spread = np.linalg.norm([com[0].x_val - com[1].x_val, com[0].y_val - com[1].y_val])
+            if drone_spread <= spread_thd:
+                spread_reward = 'near'
+                break
+        # determine spread reward 
+        # if total_spread <= spread_thd:
+        #     spread_reward = 'near'
         print('spread_reward: ', spread_reward)
 
         # penalty for distance sensor
@@ -342,8 +354,9 @@ class Env:
                     # done if target is found within range 
                     if focus_status == "in":
                         success[id] = True
-                    # need to break out once found target in one of the cam for every drone
-                    break
+                        # need to break out once found target in one of the cam for every drone
+                        break
+                    #break
 
             #print(f'Drone[{id}] status: [{exist_status}], [{focus_status}], [{size_status}]')
         print("Success: ", success)
@@ -352,26 +365,36 @@ class Env:
         area_reward = {}
         for id, drone in enumerate(droneList):
             #print("cam_shifted: ", cam_shifted[id])
-            area_reward[id] = self.dc.testAreaCoverage(drone, self.camList, cam_shifted[id])
-
+            cal_reward = self.dc.testAreaCoverage(drone, self.camList, cam_shifted[id])
+            if cal_reward > self.best_area[id]:
+                self.best_area[id] = cal_reward 
+                area_reward[id] = self.best_area[id]
+            else:
+                # no point is given if the drone does not move to new area
+                area_reward[id] = 0
+        print("area_reward_best:", area_reward)
         # decide if episode should be terminated
         done = False
 
         # fly below min height or above max height
         out_range = [False, False, False]
+        out_small_range = [False, False, False]
         for id, drone in enumerate(droneList):
+            if drone_pos[id].x_val > max_small_x or drone_pos[id].x_val < min_small_x or drone_pos[id].y_val > max_small_y or drone_pos[id].y_val < min_small_y: 
+                out_small_range[id] = True
             print("drone_pos[id].z_val: ", drone_pos[id].z_val)
             if drone_pos[id].z_val > min_height or drone_pos[id].z_val < max_height or drone_pos[id].x_val > max_x or drone_pos[id].x_val < min_x or drone_pos[id].y_val > max_y or drone_pos[id].y_val < min_y: 
                 out_range[id] = True
 
         print("has_collided: ", has_collided)
         print("out_range: ", out_range)
+        print("out_small_range: ", out_small_range)
 
         # done if 2 targets are found
         done = any(has_collided) or any(out_range) or sum(success) == target_num    
 
         # compute reward
-        reward = self.compute_reward(exist_reward, focus_reward, area_reward, spread_reward, dsensor_reward, success, done)
+        reward = self.compute_reward(exist_reward, focus_reward, area_reward, spread_reward, dsensor_reward, success, out_small_range, done)
 
         # log info
         loginfo = []
@@ -444,7 +467,8 @@ class Env:
             status = 'small'
         return status
 
-    def compute_reward(self, exist_reward, focus_reward, area_reward, spread_reward, dsensor_reward, success, done):
+    # assign rewards
+    def compute_reward(self, exist_reward, focus_reward, area_reward, spread_reward, dsensor_reward, success, out_small_range, done):
         reward = [None] * len(droneList)
         for id, drone in enumerate(droneList):         
             #img = responses[id]
@@ -454,9 +478,9 @@ class Env:
             area_rwd_pt = area_reward[id]
             
             # if distance sensor is too near any obstacle, give penalty
-            if any(dsensor_reward):
-                reward[id] = config.reward['dsensor_close']
-                continue
+            # if any(dsensor_reward):
+            #     reward[id] = config.reward['dsensor_close']
+            #     continue
 
             # Assign reward value based on status
             if done:
@@ -475,8 +499,19 @@ class Env:
 
             # team rewards
             reward[id] += area_rwd_pt
+
+            # if drones are not spread enough, give penalty
             if spread_reward == 'near':
                 reward[id] += config.reward['near']
+
+            # if distance sensor is too near any obstacle, give penalty
+            if any(dsensor_reward):
+                reward[id] += config.reward['dsensor_close']
+
+            # if drone is near to the boundary 
+            if out_small_range[id] == True:
+                reward[id] += config.reward['out_small']
+
 
             # Append GPS rewards
             # if img_status != 'dead':            

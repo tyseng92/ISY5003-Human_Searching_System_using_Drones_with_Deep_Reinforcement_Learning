@@ -344,10 +344,10 @@ class RDDPGAgent(object):
     def load_model(self, name):
         if os.path.exists(name + '_actor.h5'):
             self.actor.load_weights(name + '_actor.h5')
-            print('Actor loaded')
+            print('Actor loaded: ', name + '_actor.h5')
         if os.path.exists(name + '_critic.h5'):
             self.critic.load_weights(name + '_critic.h5')
-            print('Critic loaded')
+            print('Critic loaded:', name + '_critic.h5')
 
     def save_model(self, name):
         self.actor.save_weights(name + '_actor.h5')
@@ -408,14 +408,14 @@ if __name__ == '__main__':
     parser.add_argument('--gamma',      type=float, default=0.99)
     parser.add_argument('--lambd',      type=float, default=0.90)
     parser.add_argument('--seqsize',    type=int,   default=5)
-    parser.add_argument('--epoch',      type=int,   default=5)
+    parser.add_argument('--epoch',      type=int,   default=1)
     parser.add_argument('--batch_size', type=int,   default=32)
     parser.add_argument('--memory_size',type=int,   default=10000)
     parser.add_argument('--train_start',type=int,   default=200)
     parser.add_argument('--train_rate', type=int,   default=5)
     parser.add_argument('--epsilon',    type=float, default=1)
     parser.add_argument('--epsilon_end',type=float, default=0.05)
-    parser.add_argument('--decay_step', type=int,   default=3000)
+    parser.add_argument('--decay_step', type=int,   default=20000)
 
     args = parser.parse_args()
 

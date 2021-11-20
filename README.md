@@ -47,14 +47,14 @@ We have trained the Yolov4 model based on our custom datasets for human target. 
 ### Training the Models
 1. Start the Custum AirSim Environment.
 2. Open Command Prompt and cd to the "code" folder in the repo.
-3. To train the models from scratch, run `python <model>.py --verbose` in the command prompt, where the model can be replace by `random_d`, `rdqn`, and `rddpg`.
+3. To train the models from scratch, run `python <model>.py --verbose` in the command prompt, where the model can be replace by `randomly`, `rdqn_tf1`, and `rddpg_tf1`.
 4. To continue the training using previous trained model, make sure the .h5 files are available, and execute `python <models>.py --verbose --load_model` without `--play` in the command prompt.
 5. Press `Ctrl-C` to end the training process.
 
 ### Evaluate the Models
 1. Start the Custum AirSim Environment.
 2. Open Command Prompt and cd to the "code" folder in the repo.
-3. To test run and evaluate the models, run `python <model>.py --play --load_model` in the command prompt, where the model can be replace by `random_d`, `rdqn`, and `rddpg`.
+3. To test run and evaluate the models, run `python <model>.py --play --load_model` in the command prompt, where the model can be replace by `randomly`, `rdqn_tf1`, and `rddpg_tf1`.
 5. Press `Ctrl-C` to end the evaluation process.
 
 ### Adjust GPU VRAM usage
@@ -64,7 +64,7 @@ To change the VRAM usage, open the `<model>.py` code in any editor and Ctrl+F fo
 Below are the link for the demo video of the drone searching system based on Random Actor, RDQN and RDDPG.
 
 * [Random Actor Demo](https://youtu.be/v8Di07hC5-U)
-* [RDQN Demo](https://youtu.be/mWKVdg_JyNo)
+* [RDQN Demo](https://youtu.be/YijKq7A_nI8)
 * [RDDPG Demo](https://youtu.be/Gde0IXyrWVY)
 
 ---
