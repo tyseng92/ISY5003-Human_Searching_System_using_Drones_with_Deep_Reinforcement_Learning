@@ -2,7 +2,6 @@
 *.pyc
 *.weights
 *.mp4
-*.png
 code/darknet
 presentation/
 captured_images/
