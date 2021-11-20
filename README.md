@@ -65,7 +65,8 @@ Below are the link for the demo video of the drone searching system based on Ran
 
 * [Random Actor Demo](https://youtu.be/v8Di07hC5-U)
 * [RDQN Demo](https://youtu.be/YijKq7A_nI8)
-* [RDDPG Demo](https://youtu.be/Gde0IXyrWVY)
+* [RDDPG Demo (Part 1)](https://youtu.be/Gde0IXyrWVY)
+* [RDDPG Demo (Part 2)](https://youtu.be/p9lPDjI7bKw)
 
 ### Training results and evaluation records
 * To check the trained models, go to `\code\save_model`.
