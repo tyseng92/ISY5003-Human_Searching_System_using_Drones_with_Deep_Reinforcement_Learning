@@ -36,6 +36,7 @@ Members: Teoh Yee Seng, Ng YanBo
 1. Copy the settings.json file from the "UE4\setting_json" folder into the right folder for the AirSim to initialize the environment correctly (usually in the "C:\\Users\\{UserName}\\Documents\\AirSim" path).
 2. Download and unzip the custom environment called [HumanTrackingDrone_Env (950.MB)](https://drive.google.com/file/d/1Er62EeK0vh_1oO_XnZ6e7UDz57tjCdxy/view?usp=sharing)
 3. Launch the "HumanTrackingDrone" custom environment by double-clicking on `run.bat`
+4. Source code for the custom environment can be found [here](https://github.com/tyseng92/ISY5003-HumanTrackingDrone-CustomEnv-UE4)
 
 ### Setup YOLOV4 DArknet Packages
 1. Download and unzip the binary package for the [Yolov4 Darknet](https://drive.google.com/file/d/1ivw945z4TkUbPruh-qdIAZOiU7IQTVG7/view?usp=sharing).
