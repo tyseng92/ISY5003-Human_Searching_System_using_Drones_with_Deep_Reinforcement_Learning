@@ -24,8 +24,8 @@ Members: Teoh Yee Seng, Ng YanBo
 5. More than 16GB RAM in PC to store memory buffer data
 
 ### Downloading Code
-1. Clone this project: `git clone https://github.com/tyseng92/ISY5003-IRS-Practice-Module`
-2. Change Directory: `cd ISY5003-IRS-Practice-Module`
+1. Clone this project: `git clone https://github.com/tyseng92/ISY5003-Human_Searching_System_using_Drones_with_Deep_Reinforcement_Learning.git`
+2. Change Directory: `cd ISY5003-Human_Searching_System_using_Drones_with_Deep_Reinforcement_Learning`
 
 ### Python Environment and Dependencies
 1. Create new conda environment: `conda env create -f airsim.yml`
